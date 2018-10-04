@@ -1,0 +1,38 @@
+@keyframes sparkline-dash-animation {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+spark-line {
+  .red {
+    --fail-color: hsl(1, 73%, 45%);
+    stop-color: red;
+    stroke: var(--fail-color);
+  }
+  .orange {
+    --average-color: hsl(31, 100%, 45%); /* md orange 800 */
+    stop-color: orange;
+    stroke: var(--average-color);
+  }
+  .green {
+    --pass-color: hsl(139, 70%, 30%);
+    stop-color: green;
+    stroke: var(--pass-color);
+  }
+  text {
+    font-size: 12px;
+  }
+  .path {
+    stroke-dasharray: 1000;
+    stroke-dashoffset: 1000;
+    animation: sparkline-dash-animation 300ms linear forwards;
+  }
+  #gradient {
+    transition: opacity 600ms ease-in-out;
+    opacity: 0;
+  }
+  #gradient.fadein {
+    opacity: 1;
+  }
+}

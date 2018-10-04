@@ -1,0 +1,63 @@
+@import './elements/sparkline-element.scss';
+@import './elements/lh-scores-container.scss';
+
+* {
+  box-sizing: border-box;
+}
+:root {
+  --site-blue: rgb(62,123,246);
+}
+body {
+  font-family: 'Google Sans', sans-serif;
+  font-weight: 300;
+  padding: 32px;
+  max-width: 70%;
+  margin: 0 auto;
+}
+#enterurl {
+  // margin: 32px 0;
+  display: flex;
+  justify-content: space-between;
+}
+#url {
+  padding: 8px 0;
+  font-size: 28px;
+  font-weight: 500;
+  width: 100%;
+  border: 1px solid transparent;
+  transition: border 200ms ease-in-out;
+  outline: none;
+  margin-right: 16px;
+
+  &:focus, &:hover {
+    border: 1px solid var(--site-blue);
+  }
+}
+#runlh {
+  padding: 16px;
+  text-transform: uppercase;
+  background-color: var(--site-blue);
+  color: white;
+  border: 0;
+  border-radius: 3px;
+  font-size: 16px;
+  font-weight: 300;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.lh-running-msg {
+  display: none;
+  margin-right: 16px;
+  color: #777;
+  font-style: italic;
+  align-self: center;
+}
+.lh-audit-running .lh-running-msg {
+  display: inline-block;
+}
+a {
+  color: #222;
+}
+
+
+

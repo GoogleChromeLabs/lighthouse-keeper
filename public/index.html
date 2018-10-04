@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>Lighthouse Profile Page</title>
+  <link rel="stylesheet" href="app.min.css">
+  <!-- <link rel="stylesheet" href="./elements/sparkline-element.min.css"> -->
+  <script type="module" src="app.min.js"></script>
+</head>
+<body>
+
+<section id="enterurl">
+  <input id="url" type="url" value="https://developers.google.com/web/updates/" placeholder="Enter a full URL">
+  <span class="lh-running-msg">Auditing...</span>
+  <button id="runlh">Run Audit</button>
+</section>
+
+<lh-scores-container></lh-scores-container>
+
+<table id="savedurls">
+  <!-- Filled dynamically. -->
+</table>
+
+<lighthouse-score log></lighthouse-score>
+
+<script src="https://www.gstatic.com/firebasejs/5.3.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/5.3.0/firebase-firestore.js"></script>
+</body>
+</html>
