@@ -174,7 +174,7 @@ async function querySavedUrls() {
   };
 
   const querySnapshot = await db.collection('meta').doc('urls').get();
-  const urls = querySnapshot.data().urls;
+  const urls = querySnapshot.data().urls.sort();
 
   const tmpl = html`${
     repeat(urls, url => url, (url, i) => {

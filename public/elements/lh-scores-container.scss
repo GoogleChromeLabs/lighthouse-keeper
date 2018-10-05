@@ -7,7 +7,7 @@ lh-scores-container {
   }
   .lh-score-card {
     padding: 16px;
-    width: 100%;
+    width: 20%;
     height: 100%;
     border: 1px solid #ccc;
     border-right: 0;
@@ -22,7 +22,7 @@ lh-scores-container {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    font-size: 24px;
+    font-size: 18px;
   }
   .lh-score-card__title {
     text-overflow: ellipsis;
