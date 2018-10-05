@@ -1,5 +1,6 @@
 @import './elements/sparkline-element.scss';
 @import './elements/lh-scores-container.scss';
+@import './elements/web-progress.scss';
 
 * {
   box-sizing: border-box;
@@ -15,7 +16,6 @@ body {
   margin: 0 auto;
 }
 #enterurl {
-  // margin: 32px 0;
   display: flex;
   justify-content: space-between;
 }
@@ -52,9 +52,20 @@ body {
   font-style: italic;
   align-self: center;
 }
-.lh-audit-running .lh-running-msg {
-  display: inline-block;
+web-progress {
+  visibility: hidden;
 }
+
+/* UI changes while LH is auditing a URL */
+.lh-audit-running {
+  .lh-running-msg {
+    display: inline-block;
+  }
+  web-progress {
+    visibility: visible;
+  }
+}
+
 a {
   color: #222;
 }

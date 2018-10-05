@@ -3,3 +3,4 @@ node_modules
 *.min.js
 *.css.map
 *-error.log
+serviceAccount.json

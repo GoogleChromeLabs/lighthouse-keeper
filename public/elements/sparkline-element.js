@@ -4,7 +4,7 @@
 
 // import {html, render} from '../../node_modules/lit-html/lit-html.js';
 import {html, render} from '../node_modules/lit-html/lit-html.js';
-// import {repeat} from './lit-html/directives/repeat.js';
+// import {repeat} from './lit-html/lib/repeat.js';
 
 const clampTo2Decimals = val => Math.round(val * 100) / 100;
 
@@ -245,16 +245,16 @@ class SparklineElement extends HTMLElement {
     return {path, firstPoint, lastPoint};
   }
 
+  /**
+   * Generates element's markup.
+   * @return {!TemplateResult}
+   * @private
+   */
   generateTemplate_() {
     // Determine color of chart based on last value.
     const colorClass = this.computeColorClass_(this.values.slice(-1))
     const {path, firstPoint, lastPoint} = this.generatePath_();
 
-    // viewBox="0 0 ${this.width_} ${this.height_}"
-    // width="100%" height="100%"
-    // <g transform="translate(0,${this.scoreHeight_})" class="${colorClass}">
-
-    /** @private {!TemplateResul?t} */
     const template = html`
       <svg xmlns="http://www.w3.org/2000/svg"
           width="100%" height="130%"
@@ -301,7 +301,7 @@ class SparklineElement extends HTMLElement {
     // Match to Lighthhouse rating.
     // https://github.com/GoogleChrome/lighthouse/blob/master/lighthouse-core/report/html/renderer/util.js
     let colorClass = 'red';
-    if (val > 90) {
+    if (val >= 90) {
       colorClass = 'green';
     } else if (val > 50) {
       colorClass = 'orange';

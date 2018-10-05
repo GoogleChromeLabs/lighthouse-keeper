@@ -3,49 +3,16 @@
 // Elements.
 import './elements/gauge-element.js';
 import './elements/sparkline-element.js';
-import './elements/lighthouse-score.js';
+// import './elements/lighthouse-score.js';
 import './elements/lh-scores-container.js';
+import './elements/web-progress.js';
 
-// import {html, render} from '/lit-html/lit-html.js';
-import {html, render} from '../node_modules/lit-html/lit-html.js';
-import {repeat} from '../node_modules/lit-html/directives/repeat.js';
-// import {repeat} from '../node_modules/lit-html/directives/repeat.js';
+// TODO: ditch lit-extended when migrating to lit 0.11.x
+import {html, render} from '../node_modules/lit-html/lib/lit-extended.js';
+import {repeat} from '../node_modules/lit-html/lib/repeat.js';
 
-let db;
 const urlEl = document.querySelector('#url');
 const runLHButton = document.querySelector('#runlh');
-const lhScoreEl = document.querySelector('lighthouse-score');
-
-function initFirebase() {
-  firebase.initializeApp({
-    apiKey: "AIzaSyA-TJ8GxwFU5P0Jd2ukVi9W2E1_bVrOfjk",
-    authDomain: "lighthouse-ci.firebaseapp.com",
-    projectId: "lighthouse-ci",
-  });
-
-  db = firebase.firestore();
-  db.settings({timestampsInSnapshots: true});
-
-  // firebase.firestore().enablePersistence().catch(err => {
-  //   if (err.code == 'failed-precondition') {
-  //     // Multiple tabs open, persistence can only be enabled
-  //     // in one tab at a a time.
-  //     // ...
-  //   } else if (err.code == 'unimplemented') {
-  //     // The current browser does not support all of the
-  //     // features required to enable persistence
-  //     // ...
-  //   }
-  // });
-}
-
-function slugify(url) {
-  return url.replace(/\//g, '__');
-}
-
-function deslugify(id) {
-  return id.replace(/__/g, '/');
-}
 
 function renderScoresForCategory(runs, category) {
   const line = document.querySelector(`#${category}-score-line`);
@@ -74,94 +41,14 @@ function toggleButtons() {
   urlEl.disabled = !urlEl.disabled;
 }
 
-async function runLighthouse(url) {
-  lhScoreEl.url = url; // kicks off new run.
-
-  document.body.classList.add('lh-audit-running');
-
-  const lhr = await waitForLighthouseReport();
-
-  document.body.classList.remove('lh-audit-running');
-
-  // TODO: don't save new report if url already has an entry for today.
-  // TODO: remove reports after 60 days if they haven't been
-  // resubmitted (e.g. .lastAccessedOn hasn't changed in 60 days).
-  return await saveReport(url, lhr);
-}
-
 /**
- * Waits for lighthouse-score element to fire it's report-ready,
- * signifying a new report.
- * @return {!Promise<!Object>} Slimmed down LH result object.
- */
-async function waitForLighthouseReport() {
-  return new Promise(resolve => {
-    // Listen for new reports.
-    lhScoreEl.addEventListener('report-ready', function callback(e) {
-      lhScoreEl.removeEventListener('report-ready', callback);
-
-      // Trim down LH to only return category/scores.
-      const lhr = Object.values(e.detail.lhr.categories).map(cat => {
-        delete cat.auditRefs;
-        return cat;
-      });
-      resolve(lhr);
-    });
-  });
-}
-
-/**
- * Saves Lighthouse report to Firestore.
- * @param {string} url URL to save run under.
- * @param {!Object} lhr Lighthouse report
- * @return {!Promise<!Object>}
- */
-async function saveReport(url, lhr) {
-  const data = {
-    lhr,
-    auditedOn: new Date(),
-    lastAccessedOn: new Date(),
-  };
-
-  db.collection(slugify(url)).add(data);
-
-  // Add url to metadata list.
-  const doc = await db.doc('meta/urls').get();
-  if (doc.exists) {
-    doc.ref.update({
-      urls: firebase.firestore.FieldValue.arrayUnion(url),
-    });
-    // TODO: remove urls when it's appropriate.
-    // doc.ref.update({
-    //   urls: firebase.firestore.FieldValue.arrayRemove(url),
-    // });
-  } else {
-    doc.ref.set({urls: [url]});
-  }
-
-  return data;
-}
-
-/**
- * Pull historical LH data for an URL from Firestore.
+ * Pull historical LH data for an URL.
  * @param {string} url
  */
 async function fetchLighthouseHistory(url) {
   toggleButtons();
-
-  const querySnapshot = await db.collection(slugify(url))
-      .orderBy('auditedOn').limit(10).get();
-  const runs = [];
-  if (querySnapshot.empty) {
-    runs.push(await runLighthouse(url));
-  } else {
-    querySnapshot.forEach(doc => runs.push(doc.data()));
-    // TODO: check if there's any perf diff between this and former.
-    // runs.push(...querySnapshot.docs.map(doc => doc.data()));
-  }
-
+  const runs = await fetch(`/lh/reports?url=${url}`).then(resp => resp.json());
   renderScores(runs);
-
   toggleButtons();
 }
 
@@ -173,12 +60,12 @@ async function querySavedUrls() {
     urlEl.dispatchEvent(new CustomEvent('change')); // Same code path url input's change handler.
   };
 
-  const querySnapshot = await db.collection('meta').doc('urls').get();
-  const urls = querySnapshot.data().urls.sort();
+  const urls = await fetch('/lh/urls').then(resp => resp.json());
 
   const tmpl = html`${
     repeat(urls, url => url, (url, i) => {
-      return html`<tr><td><a href="${url}" @click=${clickHandler}>${url}</a></td></tr>`;
+      // TODO: update to @click when migrating to lit 0.11.x
+      return html`<tr><td><a href="${url}" on-click="${clickHandler}">${url}</a></td></tr>`;
     })
   }`;
 
@@ -187,21 +74,31 @@ async function querySavedUrls() {
 
 runLHButton.addEventListener('click', async e => {
   const url = urlEl.value;
+
+  console.log('Running Lighthouse....');
+  document.body.classList.add('lh-audit-running');
   toggleButtons();
-  const data = await runLighthouse(url);
+
+  await fetch('/lh/newaudit', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({url}),
+  });
+
+  document.body.classList.remove('lh-audit-running');
+  toggleButtons();
+
   await fetchLighthouseHistory(url);
-  toggleButtons();
 });
 
-urlEl.addEventListener('change', e => {
+urlEl.addEventListener('change', async e => {
   const url = e.target.value;
   if (!url) {
     return;
   }
-  fetchLighthouseHistory(url); // async
+  await fetchLighthouseHistory(url);
 });
 
-initFirebase();
 querySavedUrls(); // async
 urlEl.dispatchEvent(new CustomEvent('change')); // Same code path as url input's change handler. Invoke it.
 

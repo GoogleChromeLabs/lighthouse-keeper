@@ -10,22 +10,26 @@
     "build:css": "node-sass ./public/app.scss ./public/app.min.css -t compressed",
     "build:js": "rollup -c",
     "build": "npm run build:css && npm run build:js",
-    "prestart-disabled": "npm run build",
+    "prestart-DISABLED": "npm run build",
     "start": "node --experimental-modules server.mjs",
-    "deploy": "gcloud app deploy app.yaml --project lighthouse-ci"
+    "predeploy": "npm run build",
+    "deploy": "gcloud app deploy app.yaml --project lighthouse-ci",
+    "cron": "gcloud app deploy cron.yaml --project lighthouse-ci"
   },
   "engines": {
     "node": ">=8"
   },
   "dependencies": {
-    "lit-html": "^0.11.4",
+    "body-parser": "^1.18.3",
+    "express": "^4.16.3",
+    "firebase-admin": "^6.0.0",
+    "lighthouse": "^3.2.1",
+    "lit-html": "0.10.2",
+    "node-fetch": "2.1.2",
     "node-sass": "^4.9.3",
     "rollup": "^0.66.4",
-    "rollup-plugin-terser": "^3.0.0",
-    "lighthouse": "^3.2.1",
-    "express": "^4.16.3",
-    "@firebase/firestore": "^0.8.2",
-    "rollup-plugin-includepaths": "^0.2.3"
+    "rollup-plugin-includepaths": "^0.2.3",
+    "rollup-plugin-terser": "^3.0.0"
   },
   "devDependencies": {
     "lighthouse": "^3.2.1",
