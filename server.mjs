@@ -19,98 +19,12 @@
 import fs from 'fs';
 import express from 'express';
 import bodyParser from 'body-parser';
-import Firestore from '@google-cloud/firestore';
-import fetch from 'node-fetch';
 import {createTask} from './tasks.mjs';
+
+import * as lighthouse from './lighthouse-data.mjs';
 
 const PORT = process.env.PORT || 8080;
 const LHR = JSON.parse(fs.readFileSync('./lhr.json', 'utf8'));
-const PROJECT_ID = JSON.parse(
-    fs.readFileSync('./serviceAccount.json')).project_id;
-const MAX_REPORTS = 10;
-
-const db = new Firestore({
-  projectId: PROJECT_ID,
-  keyFilename: './serviceAccount.json',
-  timestampsInSnapshots: true,
-});
-
-// Helpers
-function slugify(url) {
-  return url.replace(/\//g, '__');
-}
-
-function deslugify(id) {
-  return id.replace(/__/g, '/');
-}
-
-function errorHandler(err, req, res, next) {
-  if (res.headersSent) {
-    return next(err);
-  }
-  console.error('errorHandler', err);
-  res.status(500).send({errors: `${err}`});
-}
-
-/**
- * Audits a site using Lighthouse.
- * @param {string} url Url to audit.
- * @return {!Object} Report object saved to Firestore.
- */
-async function runLighthouse(url) {
-  let json = {};
-
-  try {
-    const lhr = await fetch('https://builder-dot-lighthouse-ci.appspot.com/ci', {
-      method: 'POST',
-      body: JSON.stringify({url, format: 'json'}),
-      headers: {
-        'Content-Type': 'application/json',
-        'X-API-KEY': 'webdev',
-      }
-    }).then(resp => resp.json());
-
-    // Trim down LH to only include category/scores.
-    json = Object.values(lhr.categories).map(cat => {
-      delete cat.auditRefs;
-      return cat;
-    });
-
-    json = await saveReport(url, json);
-  } catch (err) {
-    console.error(`Error running Lighthouse: ${err}`);
-  }
-
-  return json;
-}
-
-/**
- * Saves Lighthouse report to Firestore.
- * @param {string} url URL to save run under.
- * @param {!Object} lhr Lighthouse report object.
- * @return {!Promise<!Object>}
- */
-async function saveReport(url, lhr) {
-  const today = new Date();
-  const data = {
-    lhr,
-    auditedOn: today,
-    lastAccessedOn: today,
-  };
-
-  await db.collection(slugify(url)).add(data);
-
-  return data;
-}
-
-async function getAllSavedLighthouseURLs() {
-  const collections = await db.getCollections();
-  const urls = collections.filter(c => c.id.startsWith('http'))
-    .map(c => deslugify(c.id))
-    .sort();
-  return urls;
-}
-
 
 const app = express();
 
@@ -153,7 +67,7 @@ app.get('/lh/audits', (req, resp) => {
 });
 
 app.get('/lh/urls', async (req, resp) => {
-  resp.status(200).json(await getAllSavedLighthouseURLs());
+  resp.status(200).json(await lighthouse.getAllSavedUrls());
 });
 
 app.get('/lh/reports', async (req, resp, next) => {
@@ -161,21 +75,7 @@ app.get('/lh/reports', async (req, resp, next) => {
   if (!url) {
     return resp.status(400).send('No url provided.');
   }
-
-  const querySnapshot = await db.collection(slugify(url))
-      .orderBy('auditedOn', 'desc').limit(MAX_REPORTS).get();
-
-  const runs = [];
-  if (querySnapshot.empty) {
-    runs.push(await runLighthouse(url));
-  } else {
-    querySnapshot.forEach(doc => runs.push(doc.data()));
-    runs.reverse(); // Order reports from oldest -> most recent.
-    // // TODO: check if there's any perf diff between this and former.
-    // runs.push(...querySnapshot.docs.map(doc => doc.data()));
-  }
-
-  resp.status(200).json(runs);
+  resp.status(200).json(await lighthouse.getReports(url));
 });
 
 app.post('/lh/newaudit', async (req, resp, next) => {
@@ -193,17 +93,17 @@ app.post('/lh/newaudit', async (req, resp, next) => {
     return resp.status(400).send('No url provided.');
   }
 
-  const lhr = await runLighthouse(url);
-  resp.status(201).json(lhr);
+  resp.status(201).json(await lighthouse.runLighthouse(url));
 });
 
 app.get('/cron/update_lighthouse_scores', async (req, resp) => {
   if (!req.get('X-Appengine-Cron')) {
-    return resp.status(403).send('Sorry, handler can only be run as a GAE cron job.');
+    return resp.status(403).send(
+        'Sorry, handler can only be run as a GAE cron job.');
   }
 
   // Schedule async tasks to fetch a new LH report for each URL.
-  const urls = await getAllSavedLighthouseURLs();
+  const urls = await lighthouse.getAllSavedUrls();
   for (const url of urls) {
     createTask(url).catch(err => console.error(err));
   }
@@ -212,7 +112,13 @@ app.get('/cron/update_lighthouse_scores', async (req, resp) => {
 });
 
 
-app.use(errorHandler);
+app.use(function errorHandler(err, req, res, next) {
+  if (res.headersSent) {
+    return next(err);
+  }
+  console.error('errorHandler', err);
+  res.status(500).send({errors: `${err}`});
+});
 
 app.listen(PORT, () => {
   console.log(`App listening on port ${PORT}`); /* eslint-disable-line */
