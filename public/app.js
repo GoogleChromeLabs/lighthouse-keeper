@@ -75,7 +75,7 @@ async function querySavedUrls() {
 runLHButton.addEventListener('click', async e => {
   const url = urlEl.value;
 
-  console.log('Running Lighthouse....');
+  console.log('Started running Lighthouse...');
   document.body.classList.add('lh-audit-running');
   toggleButtons();
 
@@ -85,6 +85,7 @@ runLHButton.addEventListener('click', async e => {
     body: JSON.stringify({url}),
   });
 
+  console.log('Done.');
   document.body.classList.remove('lh-audit-running');
   toggleButtons();
 

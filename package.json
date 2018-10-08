@@ -24,10 +24,10 @@
     "node": ">=8"
   },
   "dependencies": {
+    "@google-cloud/firestore": "^0.17.0",
     "@google-cloud/tasks": "^0.2.2",
     "body-parser": "^1.18.3",
     "express": "^4.16.3",
-    "firebase-admin": "^6.0.0",
     "lighthouse": "^3.2.1",
     "lit-html": "0.10.2",
     "node-fetch": "2.1.2",

@@ -19,13 +19,21 @@
 import fs from 'fs';
 import express from 'express';
 import bodyParser from 'body-parser';
-import firebaseAdmin from 'firebase-admin';
+import Firestore from '@google-cloud/firestore';
 import fetch from 'node-fetch';
 import {createTask} from './tasks.mjs';
 
 const PORT = process.env.PORT || 8080;
 const LHR = JSON.parse(fs.readFileSync('./lhr.json', 'utf8'));
+const PROJECT_ID = JSON.parse(
+    fs.readFileSync('./serviceAccount.json')).project_id;
 const MAX_REPORTS = 10;
+
+const db = new Firestore({
+  projectId: PROJECT_ID,
+  keyFilename: './serviceAccount.json',
+  timestampsInSnapshots: true,
+});
 
 // Helpers
 function slugify(url) {
@@ -205,22 +213,6 @@ app.get('/cron/update_lighthouse_scores', async (req, resp) => {
 
 
 app.use(errorHandler);
-
-firebaseAdmin.initializeApp({
-  // credential: firebaseAdmin.credential.applicationDefault(),
-  credential: firebaseAdmin.credential.cert(
-      JSON.parse(fs.readFileSync('./serviceAccount.json'))),
-});
-
-const db = firebaseAdmin.firestore();
-db.settings({timestampsInSnapshots: true});
-
-// const Firestore = require('@google-cloud/firestore');
-
-// const firestore = new Firestore({
-//   projectId: 'YOUR_PROJECT_ID',
-//   keyFilename: '/path/to/keyfile.json',
-// });
 
 app.listen(PORT, () => {
   console.log(`App listening on port ${PORT}`); /* eslint-disable-line */

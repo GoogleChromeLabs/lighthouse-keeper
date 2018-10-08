@@ -21,7 +21,7 @@ import cloudTasks from '@google-cloud/tasks';
 
 const QUEUE = 'update-lighthouse-scores';
 const LOCATION = 'us-central1';
-const account = JSON.parse(fs.readFileSync('./serviceAccount.json'));
+const PROJECT_ID = JSON.parse(fs.readFileSync('./serviceAccount.json')).project_id;
 
 async function createTask(url) {
   console.log('Sending task');
@@ -29,7 +29,7 @@ async function createTask(url) {
   try {
     const client = new cloudTasks.CloudTasksClient();
     const response = await client.createTask({
-      parent: client.queuePath(account.project_id, LOCATION, QUEUE),
+      parent: client.queuePath(PROJECT_ID, LOCATION, QUEUE),
       task: {
         appEngineHttpRequest: {
           httpMethod: 'POST',
