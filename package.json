@@ -14,12 +14,15 @@
     "start": "node --experimental-modules server.mjs",
     "predeploy": "npm run build",
     "deploy": "gcloud app deploy app.yaml --project lighthouse-ci",
+    "deploy:queue": "gcloud app deploy queue.yaml --project lighthouse-ci",
+    "deploy:cron": "gcloud app deploy cron.yaml --project lighthouse-ci",
     "cron": "gcloud app deploy cron.yaml --project lighthouse-ci"
   },
   "engines": {
     "node": ">=8"
   },
   "dependencies": {
+    "@google-cloud/tasks": "^0.2.2",
     "body-parser": "^1.18.3",
     "express": "^4.16.3",
     "firebase-admin": "^6.0.0",

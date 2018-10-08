@@ -19,9 +19,9 @@
 import fs from 'fs';
 import express from 'express';
 import bodyParser from 'body-parser';
-
 import firebaseAdmin from 'firebase-admin';
 import fetch from 'node-fetch';
+import {createTask} from './tasks.mjs';
 
 const PORT = process.env.PORT || 8080;
 const LHR = JSON.parse(fs.readFileSync('./lhr.json', 'utf8'));
@@ -75,13 +75,17 @@ const app = express();
 
 app.use(function forceSSL(req, res, next) {
   const fromCron = req.get('X-Appengine-Cron');
-  if (!fromCron && req.hostname !== 'localhost' && req.get('X-Forwarded-Proto') === 'http') {
+  const fromTaskQueue = req.get('X-AppEngine-QueueName');
+  if (!(fromCron || fromTaskQueue) && req.hostname !== 'localhost' &&
+      req.get('X-Forwarded-Proto') === 'http') {
     return res.redirect(`https://${req.hostname}${req.url}`);
   }
   next();
 });
 
+app.use(bodyParser.raw());
 app.use(bodyParser.json());
+// app.use(bodyParser.text());
 app.use(express.static('public'));
 app.use('/node_modules', express.static('node_modules'))
 
@@ -141,16 +145,6 @@ async function runLighthouse(url) {
   return json;
 }
 
-app.post('/lh/newaudit', async (req, resp, next) => {
-  const url = req.body.url;
-  if (!url) {
-    return resp.status(400).send('No url provided.');
-  }
-  const lhr = await runLighthouse(url);
-  resp.status(201).json(lhr);
-
-});
-
 app.get('/lh/reports', async (req, resp, next) => {
   const url = req.query.url;
   if (!url) {
@@ -172,19 +166,37 @@ app.get('/lh/reports', async (req, resp, next) => {
   resp.status(200).json(runs);
 });
 
+app.post('/lh/newaudit', async (req, resp, next) => {
+  let url = req.body.url || req.query.url;
+  if (!url) {
+    try {
+      url = JSON.parse(req.body.toString('utf8'));
+    } catch (err) {
+      // noop
+    }
+  }
+
+  // Still no URL found, bomb out.
+  if (!url) {
+    return resp.status(400).send('No url provided.');
+  }
+
+  const lhr = await runLighthouse(url);
+  resp.status(201).json(lhr);
+});
+
 app.get('/cron/update_lighthouse_scores', async (req, resp) => {
   if (!req.get('X-Appengine-Cron')) {
-    // return res.status(403).send('Sorry, handler can only be run as a GAE cron job.');
+    return resp.status(403).send('Sorry, handler can only be run as a GAE cron job.');
   }
 
+  // Schedule async tasks to fetch a new LH report for each URL.
   const urls = await getAllSavedLightURLs();
   for (const url of urls) {
-
+    createTask(url).catch(err => console.error(err));
   }
 
-  // TODO
-
-  resp.status(200).json(urls);
+  resp.status(200).send('Update tasks scheduled');
 });
 
 
