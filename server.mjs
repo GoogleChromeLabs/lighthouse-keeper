@@ -25,6 +25,7 @@ import {createTask} from './tasks.mjs';
 
 const PORT = process.env.PORT || 8080;
 const LHR = JSON.parse(fs.readFileSync('./lhr.json', 'utf8'));
+const MAX_REPORTS = 10;
 
 // Helpers
 function slugify(url) {
@@ -116,19 +117,17 @@ app.get('/lh/urls', async (req, resp) => {
 });
 
 async function runLighthouse(url) {
-  const builderUrl = 'https://builder-dot-lighthouse-ci.appspot.com/ci';
-  const body = JSON.stringify({
-    url,
-    format: 'json',
-    'X-API_KEY': 'webdev',
-  });
-
   let json = {};
+
   try {
-    const lhr = await fetch(builderUrl, {method: 'POST', body, headers: {
-      'Content-Type': 'application/json',
-      'X-API-KEY': 'webdev',
-    }}).then(resp => resp.json());
+    const lhr = await fetch('https://builder-dot-lighthouse-ci.appspot.com/ci', {
+      method: 'POST',
+      body: JSON.stringify({url, format: 'json'}),
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-KEY': 'webdev',
+      }
+    }).then(resp => resp.json());
 
     // Trim down LH to only return category/scores.
     json = Object.values(lhr.categories).map(cat => {
@@ -152,13 +151,14 @@ app.get('/lh/reports', async (req, resp, next) => {
   }
 
   const querySnapshot = await db.collection(slugify(url))
-      .orderBy('auditedOn').limit(10).get();
+      .orderBy('auditedOn', 'desc').limit(MAX_REPORTS).get();
 
   const runs = [];
   if (querySnapshot.empty) {
     runs.push(await runLighthouse(url));
   } else {
     querySnapshot.forEach(doc => runs.push(doc.data()));
+    runs.reverse(); // Order reports from oldest -> most recent.
     // // TODO: check if there's any perf diff between this and former.
     // runs.push(...querySnapshot.docs.map(doc => doc.data()));
   }
