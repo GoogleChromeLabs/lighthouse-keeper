@@ -16,7 +16,9 @@
     "deploy": "gcloud app deploy app.yaml --project lighthouse-ci",
     "deploy:queue": "gcloud app deploy queue.yaml --project lighthouse-ci",
     "deploy:cron": "gcloud app deploy cron.yaml --project lighthouse-ci",
-    "cron": "gcloud app deploy cron.yaml --project lighthouse-ci"
+    "cron": "gcloud app deploy cron.yaml --project lighthouse-ci",
+    "encrypt": "openssl aes-256-cbc -a -salt -in serviceAccount.json -out serviceAccount.json.enc",
+    "decrypt": "openssl aes-256-cbc -d -a -in serviceAccount.json.enc -out serviceAccount.json"
   },
   "engines": {
     "node": ">=8"

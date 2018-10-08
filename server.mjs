@@ -45,6 +45,38 @@ function errorHandler(err, req, res, next) {
 }
 
 /**
+ * Audits a site using Lighthouse.
+ * @param {string} url Url to audit.
+ * @return {!Object} Report object saved to Firestore.
+ */
+async function runLighthouse(url) {
+  let json = {};
+
+  try {
+    const lhr = await fetch('https://builder-dot-lighthouse-ci.appspot.com/ci', {
+      method: 'POST',
+      body: JSON.stringify({url, format: 'json'}),
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-KEY': 'webdev',
+      }
+    }).then(resp => resp.json());
+
+    // Trim down LH to only include category/scores.
+    json = Object.values(lhr.categories).map(cat => {
+      delete cat.auditRefs;
+      return cat;
+    });
+
+    json = await saveReport(url, json);
+  } catch (err) {
+    console.error(`Error running Lighthouse: ${err}`);
+  }
+
+  return json;
+}
+
+/**
  * Saves Lighthouse report to Firestore.
  * @param {string} url URL to save run under.
  * @param {!Object} lhr Lighthouse report object.
@@ -63,7 +95,7 @@ async function saveReport(url, lhr) {
   return data;
 }
 
-async function getAllSavedLightURLs() {
+async function getAllSavedLighthouseURLs() {
   const collections = await db.getCollections();
   const urls = collections.filter(c => c.id.startsWith('http'))
     .map(c => deslugify(c.id))
@@ -113,36 +145,8 @@ app.get('/lh/audits', (req, resp) => {
 });
 
 app.get('/lh/urls', async (req, resp) => {
-  resp.status(200).json(await getAllSavedLightURLs());
+  resp.status(200).json(await getAllSavedLighthouseURLs());
 });
-
-async function runLighthouse(url) {
-  let json = {};
-
-  try {
-    const lhr = await fetch('https://builder-dot-lighthouse-ci.appspot.com/ci', {
-      method: 'POST',
-      body: JSON.stringify({url, format: 'json'}),
-      headers: {
-        'Content-Type': 'application/json',
-        'X-API-KEY': 'webdev',
-      }
-    }).then(resp => resp.json());
-
-    // Trim down LH to only return category/scores.
-    json = Object.values(lhr.categories).map(cat => {
-      delete cat.auditRefs;
-      return cat;
-    });
-
-    json = await saveReport(url, json);
-
-  } catch (err) {
-    console.error(`Error running Lighthouse: ${err}`);
-  }
-
-  return json;
-}
 
 app.get('/lh/reports', async (req, resp, next) => {
   const url = req.query.url;
@@ -191,7 +195,7 @@ app.get('/cron/update_lighthouse_scores', async (req, resp) => {
   }
 
   // Schedule async tasks to fetch a new LH report for each URL.
-  const urls = await getAllSavedLightURLs();
+  const urls = await getAllSavedLighthouseURLs();
   for (const url of urls) {
     createTask(url).catch(err => console.error(err));
   }
