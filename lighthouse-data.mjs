@@ -106,7 +106,7 @@ export async function getReports(url, maxReports = MAX_REPORTS) {
   const runs = [];
 
   if (querySnapshot.empty) {
-    runs.push(await lighthouse.runLighthouse(url));
+    runs.push(await runLighthouse(url));
   } else {
     querySnapshot.forEach(doc => runs.push(doc.data()));
     runs.reverse(); // Order reports from oldest -> most recent.

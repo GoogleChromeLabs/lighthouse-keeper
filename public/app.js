@@ -13,28 +13,7 @@ import {repeat} from '../node_modules/lit-html/lib/repeat.js';
 
 const urlEl = document.querySelector('#url');
 const runLHButton = document.querySelector('#runlh');
-
-function renderScoresForCategory(runs, category) {
-  const line = document.querySelector(`#${category}-score-line`);
-  line.values = runs.map(run => {
-    return run.lhr.find(item => item.id === category).score * 100;
-  });
-  line.update();
-
-  const gauge = document.querySelector(`#${category}-score-gauge`);
-  if (gauge && line.values.length) {
-    gauge.score = line.values.slice(-1)[0] / 100; // gauge display lastest score.
-  }
-}
-
-function renderScores(runs) {
-  renderScoresForCategory(runs, 'pwa');
-  renderScoresForCategory(runs, 'performance');
-  renderScoresForCategory(runs, 'accessibility');
-  renderScoresForCategory(runs, 'seo');
-  renderScoresForCategory(runs, 'best-practices');
-}
-
+const lhScoresContainer = document.querySelector('lh-scores-container');
 
 function toggleButtons() {
   runLHButton.disabled = !runLHButton.disabled;
@@ -47,8 +26,7 @@ function toggleButtons() {
  */
 async function fetchLighthouseHistory(url) {
   toggleButtons();
-  const runs = await fetch(`/lh/reports?url=${url}`).then(resp => resp.json());
-  renderScores(runs);
+  lhScoresContainer.url = url; // fetches + renders scores for the url.
   toggleButtons();
 }
 
