@@ -1,7 +1,7 @@
 cron:
 - description: "Update Lighthouse scores"
   url: /cron/update_lighthouse_scores
-  schedule: every 24 hours
+  schedule: every day 23:00
   # schedule: every 1 mins
   # schedule: every day 05:00
   target: webdev
