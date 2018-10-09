@@ -44,6 +44,27 @@ app.use(bodyParser.json());
 app.use(express.static('public'));
 app.use('/node_modules', express.static('node_modules'))
 
+app.get('/cron/update_lighthouse_scores', async (req, resp) => {
+  if (!req.get('X-Appengine-Cron')) {
+    return resp.status(403).send(
+        'Sorry, handler can only be run as a GAE cron job.');
+  }
+
+  // Schedule async tasks to fetch a new LH report for each URL.
+  const urls = await lighthouse.getAllSavedUrls();
+  for (const url of urls) {
+    createTask(url).catch(err => console.error(err));
+  }
+
+  resp.status(200).send('Update tasks scheduled');
+});
+
+// Enable cors on rest of handler.
+app.use(function enableCors(req, res, next) {
+  res.set('Access-Control-Allow-Origin', '*');
+  next();
+});
+
 app.get('/lh/categories', (req, resp) => {
   const result = Object.values(LHR.categories).map(cat => {
     return {
@@ -95,22 +116,6 @@ app.post('/lh/newaudit', async (req, resp, next) => {
 
   resp.status(201).json(await lighthouse.runLighthouse(url));
 });
-
-app.get('/cron/update_lighthouse_scores', async (req, resp) => {
-  if (!req.get('X-Appengine-Cron')) {
-    return resp.status(403).send(
-        'Sorry, handler can only be run as a GAE cron job.');
-  }
-
-  // Schedule async tasks to fetch a new LH report for each URL.
-  const urls = await lighthouse.getAllSavedUrls();
-  for (const url of urls) {
-    createTask(url).catch(err => console.error(err));
-  }
-
-  resp.status(200).send('Update tasks scheduled');
-});
-
 
 app.use(function errorHandler(err, req, res, next) {
   if (res.headersSent) {
