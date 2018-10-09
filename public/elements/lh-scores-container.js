@@ -96,7 +96,8 @@ class LHScoresContainerElement extends HTMLElement {
     const tmpls = this.categories.map((cat, i) => {
       // Get category's score for each run.
       const values = this.runs_.map(run => {
-        return run.lhr.find(item => item.id === cat.id).score * 100;
+        const lhr = run.lhrSlim || run.lhr;
+        return lhr.find(item => item.id === cat.id).score * 100;
       });
 
       const scoreAttr = values.slice(-1)[0] / 100; // Display latest score.

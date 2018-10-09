@@ -19,7 +19,6 @@ import fetch from 'node-fetch';
 import Firestore from '@google-cloud/firestore';
 
 const SERVICE_ACCOUNT_FILE = './serviceAccount.json';
-
 const CI_URL = 'https://builder-dot-lighthouse-ci.appspot.com/ci';
 const CI_API_KEY = 'webdev';
 
@@ -40,14 +39,29 @@ function deslugify(id) {
  * @return {!Promise<!Object>}
  */
 export async function saveReport(url, lhr) {
+  // Trim down the LH results to only include category/scores.
+  const lhrSlim = Object.values(lhr.categories).map(cat => {
+    delete cat.auditRefs;
+    return cat;
+  });
+
+  const collectionRef = db.collection(slugify(url));
+
+  // Save space by deleting the full LH report saved in the last entry.
+  const querySnapshot = await collectionRef
+    .orderBy('auditedOn', 'desc').limit(1).get();
+  await querySnapshot.docs[0].ref.update({
+    lhr: Firestore.FieldValue.delete(),
+  });
+
   const today = new Date();
   const data = {
     lhr,
+    lhrSlim,
     auditedOn: today,
-    lastAccessedOn: today,
+    // lastAccessedOn: today,
   };
-
-  await db.collection(slugify(url)).add(data);
+  const doc = await collectionRef.add(data); // Add new report.
 
   return data;
 }
@@ -70,13 +84,7 @@ export async function runLighthouse(url) {
       }
     }).then(resp => resp.json());
 
-    // Trim down LH to only include category/scores.
-    json = Object.values(lhr.categories).map(cat => {
-      delete cat.auditRefs;
-      return cat;
-    });
-
-    json = await saveReport(url, json);
+    json = await saveReport(url, lhr);
   } catch (err) {
     console.error(`Error running Lighthouse: ${err}`);
   }
@@ -100,7 +108,8 @@ export async function getAllSavedUrls() {
  * @export
  */
 export async function getReports(url, maxReports = MAX_REPORTS) {
-  const querySnapshot = await db.collection(slugify(url))
+  const slugUrl = slugify(url);
+  const querySnapshot = await db.collection(slugUrl)
       .orderBy('auditedOn', 'desc').limit(maxReports).get();
 
   const runs = [];
@@ -113,6 +122,9 @@ export async function getReports(url, maxReports = MAX_REPORTS) {
     // // TODO: check if there's any perf diff between this and former.
     // runs.push(...querySnapshot.docs.map(doc => doc.data()));
   }
+
+  // Update URLs last viewed timestamp.
+  const doc = await db.doc(`meta/${slugUrl}`).set({lastViewed: new Date()});
 
   return runs;
 }
