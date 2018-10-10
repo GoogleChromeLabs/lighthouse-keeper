@@ -42,7 +42,7 @@ async function querySavedUrls() {
   const tmpl = html`${
     repeat(urls, url => url, (url, i) => {
       // TODO: update to @click when migrating to lit 0.11.x
-      return html`<tr><td><a href="${url}" on-click="${clickHandler}">${url}</a></td></tr>`;
+      return html`<tr><td><a href="${url}" @click="${clickHandler}">${url}</a></td></tr>`;
     })
   }`;
 

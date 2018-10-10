@@ -16,7 +16,7 @@ class SparklineElement extends HTMLElement {
     this.hasSetupDom_ = false;
 
     /** @private {!Array<number>} */
-    this.values_ = [];//JSON.parse(this.getAttribute('values')) || [];
+    this.values_ = [];
     /** @private {number} */
     this.stroke_ = 2;
      /** @private {number} */
@@ -64,14 +64,8 @@ class SparklineElement extends HTMLElement {
    * @export
    */
   set values(val) {
-    if (typeof val === 'string') {
-      try {
-        val = JSON.parse(val);
-      } catch (err) {
-        console.warn('Values property was not a valid array.');
-      }
-    }
     this.values_ = val;
+    this.update();
   }
 
   /**

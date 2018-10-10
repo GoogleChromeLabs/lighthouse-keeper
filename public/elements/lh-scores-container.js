@@ -1,14 +1,22 @@
 import {html, render} from '../node_modules/lit-html/lit-html.js';
-// import {repeat} from '../node_modules/lit-html/lib/repeat.js';
 
+const CI_HOST = 'https://webdev-dot-lighthouse-ci.appspot.com';
+
+/**
+ * Render Lighthouse scores.
+ * 1. Setting the url attribute or property on the element fetches
+ *    Lighthouse reports for the URL.
+ * 2. The element fires the `lighthouse-scores` event when the data is ready.
+ */
 class LHScoresContainerElement extends HTMLElement {
   constructor() {
     super();
 
+    /** @private {boolean} */
+    this.hasSetupDom_ = false;
+
     /** @private {!Array<!Object>} */
     this.runs_ = [];
-    /** @private {string} */
-    this.url_;
   }
 
   /**
@@ -30,7 +38,7 @@ class LHScoresContainerElement extends HTMLElement {
       title: 'Best Practices',
     }, {
       id: 'seo',
-      title: 'SEO'
+      title: 'SEO',
     }];
   }
 
@@ -39,7 +47,7 @@ class LHScoresContainerElement extends HTMLElement {
    * @export
    */
   get url() {
-    return this.url_;
+    return this.getAttribute('url') || '';
   }
 
   /**
@@ -47,10 +55,11 @@ class LHScoresContainerElement extends HTMLElement {
    * @export
    */
   set url(val) {
-    this.url_ = val;
-    if (this.url_) {
-      this.fetchReports_(); // async
+    if (!val) {
+      return;
     }
+    this.setAttribute('url', val);
+    this.fetchReports_(); // async
   }
 
   /**
@@ -66,7 +75,11 @@ class LHScoresContainerElement extends HTMLElement {
    * @override
    */
   connectedCallback() {
-    this.url = this.getAttribute('url');
+    if (this.hasSetupDom_) {
+      return;
+    }
+    this.hasSetupDom_ = true;
+    this.fetchReports_(); // async
   }
 
   /**
@@ -75,11 +88,23 @@ class LHScoresContainerElement extends HTMLElement {
    */
   async fetchReports_() {
     if (!this.url) {
-      throw Error('No url set to fetch reports for.');
+      return;
     }
-    this.runs_ = await fetch(`/lh/reports?url=${this.url}`)
-        .then(resp => resp.json());
-    this.update_();
+
+    const detail = {};
+
+    try {
+      this.runs_ = await fetch(`${CI_HOST}/lh/reports?url=${this.url}`)
+        .then((resp) => resp.json());
+      detail.runs = this.runs_;
+      this.update_();
+    } catch (err) {
+      console.warn('Error fetching Lighthouse reports for URL.', err);
+      detail.errors = err.message;
+      this.runs_ = [];
+    }
+
+    this.dispatchEvent(new CustomEvent('lighthouse-scores', {detail}));
   }
 
   /**
@@ -95,13 +120,15 @@ class LHScoresContainerElement extends HTMLElement {
 
     const tmpls = this.categories.map((cat, i) => {
       // Get category's score for each run.
-      const values = this.runs_.map(run => {
+      const values = this.runs_.map((run) => {
         const lhr = run.lhrSlim || run.lhr;
+        if (!lhr) {
+          console.warn(`No Lighthouse reports for ${this.url}`);
+        }
         return lhr.find(item => item.id === cat.id).score * 100;
       });
 
       const scoreAttr = values.slice(-1)[0] / 100; // Display latest score.
-      const valAttr = JSON.stringify(values);
 
       return html`
         <div class="lh-score-card">
@@ -109,7 +136,7 @@ class LHScoresContainerElement extends HTMLElement {
             <span class="lh-score-card__title">${cat.title}</span>
             <gauge-element id="${cat.id}-score-gauge" score="${scoreAttr}"></gauge-element>
           </div>
-          <spark-line id="${cat.id}-score-line" fill showlast values="${valAttr}"></spark-line>
+          <spark-line id="${cat.id}-score-line" fill showfirst showlast .values="${values}"></spark-line>
         </div>`;
     });
     render(html`${tmpls}`, this);
