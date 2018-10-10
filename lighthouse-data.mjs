@@ -50,9 +50,10 @@ export async function saveReport(url, lhr) {
   // Save space by deleting the full LH report saved in the last entry.
   const querySnapshot = await collectionRef
     .orderBy('auditedOn', 'desc').limit(1).get();
-  await querySnapshot.docs[0].ref.update({
-    lhr: Firestore.FieldValue.delete(),
-  });
+  const doc = querySnapshot.docs[0];
+  if (doc) {
+    await doc.ref.update({lhr: Firestore.FieldValue.delete()});
+  }
 
   const today = new Date();
   const data = {
@@ -61,7 +62,7 @@ export async function saveReport(url, lhr) {
     auditedOn: today,
     // lastAccessedOn: today,
   };
-  const doc = await collectionRef.add(data); // Add new report.
+  await collectionRef.add(data); // Add new report.
 
   return data;
 }
