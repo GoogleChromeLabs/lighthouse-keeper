@@ -12,10 +12,11 @@ class SparklineElement extends HTMLElement {
   constructor() {
     super();
 
+    /** @private {boolean} */
+    this.hasSetupDom_ = false;
+
     /** @private {!Array<number>} */
-    this.values_ = JSON.parse(this.getAttribute('values')) || [];
-    /** @private {number} */
-    this.fill_ = false;
+    this.values_ = [];//JSON.parse(this.getAttribute('values')) || [];
     /** @private {number} */
     this.stroke_ = 2;
      /** @private {number} */
@@ -24,10 +25,6 @@ class SparklineElement extends HTMLElement {
     this.padding_ = 10;
     /** @private {number} */
     this.scoreHeight_ = 15;
-    /** @private {boolean} */
-    this.showfirst_ = false;
-    /** @private {boolean} */
-    this.showlast_ = false;
 
     /** @private {number} */
     this.width_ = null;
@@ -67,6 +64,13 @@ class SparklineElement extends HTMLElement {
    * @export
    */
   set values(val) {
+    if (typeof val === 'string') {
+      try {
+        val = JSON.parse(val);
+      } catch (err) {
+        console.warn('Values property was not a valid array.');
+      }
+    }
     this.values_ = val;
   }
 
@@ -75,7 +79,7 @@ class SparklineElement extends HTMLElement {
    * @export
    */
   get fill() {
-    return this.fill_;
+    return this.hasAttribute('fill');
   }
 
   /**
@@ -83,8 +87,7 @@ class SparklineElement extends HTMLElement {
    * @export
    */
   set fill(val) {
-    this.fill_ = Boolean(val);
-    if (this.fill_) {
+    if (Boolean(val)) {
       this.setAttribute('fill', '');
     } else {
       this.removeAttribute('fill');
@@ -96,7 +99,7 @@ class SparklineElement extends HTMLElement {
    * @export
    */
   get showfirst() {
-    return this.showfirst_;
+    return this.hasAttribute('showfirst');
   }
 
   /**
@@ -104,8 +107,7 @@ class SparklineElement extends HTMLElement {
    * @export
    */
   set showfirst(val) {
-    this.showfirst_ = Boolean(val);
-    if (this.showlast_) {
+    if (Boolean(val)) {
       this.setAttribute('showfirst', '');
     } else {
       this.removeAttribute('showfirst');
@@ -117,7 +119,7 @@ class SparklineElement extends HTMLElement {
    * @export
    */
   get showlast() {
-    return this.showlast_;
+    return this.hasAttribute('showlast');
   }
 
   /**
@@ -125,8 +127,7 @@ class SparklineElement extends HTMLElement {
    * @export
    */
   set showlast(val) {
-    this.showlast_ = Boolean(val);
-    if (this.showlast_) {
+    if (Boolean(val)) {
       this.setAttribute('showlast', '');
     } else {
       this.removeAttribute('showlast');
@@ -142,12 +143,6 @@ class SparklineElement extends HTMLElement {
    * @override
    */
   attributeChangedCallback(attr, oldValue, newValue, namespace) {
-    if (oldValue === newValue) {
-      return;
-    }
-    if (['fill', 'showfirst', 'showlast'].includes(attr)) {
-      this[attr] = newValue !== null;
-    }
     this.update();
   }
 
@@ -156,7 +151,16 @@ class SparklineElement extends HTMLElement {
    * @override
    */
   connectedCallback() {
-    this.update();
+    if (this.hasSetupDom_) {
+      return;
+    }
+
+    this.hasSetupDom_ = true;
+
+    this.update(); // generate DOM.
+    this.setAttribute('role', 'progressbar');
+    this.setAttribute('aria-valuemin', 0);
+    this.setAttribute('aria-valuemax', 100);
 
     // TODO: remove listeners in a disconnectedCallback.
     window.addEventListener('resize', e => {
@@ -204,6 +208,8 @@ class SparklineElement extends HTMLElement {
       this.score_.setAttribute('x', -1000);
       this.score_.setAttribute('y', -100);
     });
+
+    this.hasSetupDom_ = true;
   }
 
   /**
@@ -284,7 +290,7 @@ class SparklineElement extends HTMLElement {
           <circle cx="${lastPoint.x}" cy="${lastPoint.y}" r="${this.circleRadius_}"
             fill="${this.showlast ? '#fff' : 'none'}"
             stroke-width="${this.showlast ? this.stroke_ : 0}"/>
-          <text id="score" x="-1000" y="-1000" stroke="none"></text>
+          <text id="score" x="-1000" y="-1000" stroke="none" aria-hidden="true"></text>
         </g>
       </svg>`;
 
@@ -314,7 +320,8 @@ class SparklineElement extends HTMLElement {
    * @export
    */
   update() {
-    if (!this.values.length) {
+    // Don't do work if connectedCallback hasn't been called yet or no values.
+    if (!this.hasSetupDom_ || !this.values.length) {
       return;
     }
 
@@ -335,6 +342,8 @@ class SparklineElement extends HTMLElement {
     const length = path.getTotalLength();
     path.style.strokeDasharray = length;
     path.style.strokeDashoffset = length;
+
+    this.setAttribute('aria-valuenow', this.datapoints.slice(-1)[0].score);
 
     requestAnimationFrame(() => {
       this.querySelector('#gradient').classList.add('fadein');
