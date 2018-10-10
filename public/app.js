@@ -7,9 +7,8 @@ import './elements/sparkline-element.js';
 import './elements/lh-scores-container.js';
 import './elements/web-progress.js';
 
-// TODO: ditch lit-extended when migrating to lit 0.11.x
-import {html, render} from '../node_modules/lit-html/lib/lit-extended.js';
-import {repeat} from '../node_modules/lit-html/lib/repeat.js';
+import {html, render} from '../node_modules/lit-html/lit-html.js';
+import {repeat} from '../node_modules/lit-html/directives/repeat.js';
 
 const urlEl = document.querySelector('#url');
 const runLHButton = document.querySelector('#runlh');
