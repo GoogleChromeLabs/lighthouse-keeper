@@ -2240,10 +2240,10 @@ lighthouse@^3.2.1:
     yargs "3.32.0"
     yargs-parser "7.0.0"
 
-lit-html@0.10.2:
-  version "0.10.2"
-  resolved "https://registry.yarnpkg.com/lit-html/-/lit-html-0.10.2.tgz#53c846afcf91bb1e6623179ef22e327ab8ac0e0e"
-  integrity sha512-ue0pIX3Fj5gUsNSozdRQIb1MAgNqFQsHgvHE/FU34xyu9NN/af3EISr7Bb+vP9YeLXIA4vLLOoYp2Z22dVYhww==
+lit-html@^0.12.0:
+  version "0.12.0"
+  resolved "https://registry.yarnpkg.com/lit-html/-/lit-html-0.12.0.tgz#d994420fda74744f9d4a79401b086de929643e6a"
+  integrity sha512-NyFgq8yTlGEjUFQOmNnK/kj+ZdDVJzTwsLunNSewGiOns7SjuJi6ymCCqzZZ81uW2VwEmliMbOlFZc9QmOJPLA==
 
 load-json-file@^1.0.0:
   version "1.1.0"
@@ -3334,10 +3334,10 @@ rollup-plugin-terser@^3.0.0:
     serialize-javascript "^1.5.0"
     terser "^3.8.2"
 
-rollup@^0.66.4:
-  version "0.66.4"
-  resolved "https://registry.yarnpkg.com/rollup/-/rollup-0.66.4.tgz#8067b9638af82873b7fd644af9c3d72108ca4bab"
-  integrity sha512-oV6dzR2zDYVOMUmrM1XMTW0NlZqKeZANAWH+A7BwCfE+mAfJ6xRkYbrM3qAossgyMxPN9aFBu8kRXf5HYB5gvw==
+rollup@^0.66.6:
+  version "0.66.6"
+  resolved "https://registry.yarnpkg.com/rollup/-/rollup-0.66.6.tgz#ce7d6185beb7acea644ce220c25e71ae03275482"
+  integrity sha512-J7/SWanrcb83vfIHqa8+aVVGzy457GcjA6GVZEnD0x2u4OnOd0Q1pCrEoNe8yLwM6z6LZP02zBT2uW0yh5TqOw==
   dependencies:
     "@types/estree" "0.0.39"
     "@types/node" "*"

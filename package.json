@@ -28,10 +28,10 @@
     "body-parser": "^1.18.3",
     "express": "^4.16.3",
     "lighthouse": "^3.2.1",
-    "lit-html": "0.10.2",
+    "lit-html": "^0.12.0",
     "node-fetch": "2.1.2",
     "node-sass": "^4.9.3",
-    "rollup": "^0.66.4",
+    "rollup": "^0.66.6",
     "rollup-plugin-includepaths": "^0.2.3",
     "rollup-plugin-terser": "^3.0.0"
   },
