@@ -20,7 +20,6 @@ import fs from 'fs';
 import express from 'express';
 import bodyParser from 'body-parser';
 import {createTask} from './tasks.mjs';
-
 import * as lighthouse from './lighthouse-data.mjs';
 
 const PORT = process.env.PORT || 8080;
@@ -91,12 +90,28 @@ app.get('/lh/urls', async (req, resp) => {
   resp.status(200).json(await lighthouse.getAllSavedUrls());
 });
 
+app.get('/lh/html', async (req, resp, next) => {
+  const url = req.query.url;
+  if (!url) {
+    return resp.status(400).send('No url provided.');
+  }
+
+  const latestRun = (await lighthouse.getReports(url, 1))[0];
+  if (!latestRun) {
+    return resp.status(404).send(`No report found for ${url}`);
+  }
+
+  const reportHTML = lighthouse.generateReport(latestRun.lhr, 'html');
+  resp.status(200).send(reportHTML);
+});
+
 app.get('/lh/reports', async (req, resp, next) => {
   const url = req.query.url;
   if (!url) {
     return resp.status(400).send('No url provided.');
   }
-  resp.status(200).json(await lighthouse.getReports(url));
+  const reports = await lighthouse.getReports(url);
+  resp.status(200).json(reports);
 });
 
 app.post('/lh/newaudit', async (req, resp, next) => {

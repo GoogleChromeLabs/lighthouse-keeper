@@ -17,6 +17,7 @@
 import fs from 'fs';
 import fetch from 'node-fetch';
 import Firestore from '@google-cloud/firestore';
+import ReportGenerator from 'lighthouse/lighthouse-core/report/report-generator.js';
 
 const SERVICE_ACCOUNT_FILE = './serviceAccount.json';
 const CI_URL = 'https://builder-dot-lighthouse-ci.appspot.com/ci';
@@ -39,8 +40,11 @@ function deslugify(id) {
  * @return {!Promise<!Object>}
  */
 export async function saveReport(url, lhr) {
+  delete lhr.i18n; // remove cruft we don't to store.
+
   // Trim down the LH results to only include category/scores.
-  const lhrSlim = Object.values(lhr.categories).map(cat => {
+  const categories = JSON.parse(JSON.stringify(lhr.categories)); // clone it.
+  const lhrSlim = Object.values(categories).map(cat => {
     delete cat.auditRefs;
     return cat;
   });
@@ -63,6 +67,8 @@ export async function saveReport(url, lhr) {
     // lastAccessedOn: today,
   };
   await collectionRef.add(data); // Add new report.
+
+  await updateLastViewed(url);
 
   return data;
 }
@@ -101,6 +107,15 @@ export async function getAllSavedUrls() {
 }
 
 /**
+ *  Updates the last viewed metadata for a URL.
+ * @param {string} url
+ * @return {!Promise}
+ */
+async function updateLastViewed(url) {
+  return db.doc(`meta/${slugify(url)}`).set({lastViewed: new Date()});
+}
+
+/**
  * Get saved reports for a given URL.
  * @param {string} url URL to fetch reports for.
  * @param {number=} maxReports Max number of reports to return. Defaults to
@@ -109,26 +124,33 @@ export async function getAllSavedUrls() {
  * @export
  */
 export async function getReports(url, maxReports = MAX_REPORTS) {
-  const slugUrl = slugify(url);
-  const querySnapshot = await db.collection(slugUrl)
+  const querySnapshot = await db.collection(slugify(url))
       .orderBy('auditedOn', 'desc').limit(maxReports).get();
 
   const runs = [];
 
   if (querySnapshot.empty) {
-    runs.push(await runLighthouse(url));
+    // runs.push(await runLighthouse(url));
   } else {
     querySnapshot.forEach(doc => runs.push(doc.data()));
     runs.reverse(); // Order reports from oldest -> most recent.
-    // // TODO: check if there's any perf diff between this and former.
-    // runs.push(...querySnapshot.docs.map(doc => doc.data()));
+    await updateLastViewed(url);
   }
-
-  // Update URLs last viewed timestamp.
-  const doc = await db.doc(`meta/${slugUrl}`).set({lastViewed: new Date()});
 
   return runs;
 }
+
+/**
+ * Generates a LH report in different formats.
+ * @param {!Object} lhr Lighthouse report object.
+ * @param {string} format How to format the report. One 'html', 'json', 'csv'.
+ * @return {string} Report.
+ * @export
+ */
+export function generateReport(lhr, format) {
+  return ReportGenerator.generateReport(lhr, format);
+}
+
 
 const db = new Firestore({
   projectId: JSON.parse(fs.readFileSync(SERVICE_ACCOUNT_FILE)).project_id,

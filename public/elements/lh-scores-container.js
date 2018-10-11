@@ -17,8 +17,8 @@
 
 import {html, render} from '../node_modules/lit-html/lit-html.js';
 
-const CI_HOST = 'https://webdev-dot-lighthouse-ci.appspot.com';
-
+const CI_HOST = location.origin.includes('localhost') ? location.origin :
+    'https://webdev-dot-lighthouse-ci.appspot.com';
 /**
  * Render Lighthouse scores.
  * 1. Setting the url attribute or property on the element fetches
