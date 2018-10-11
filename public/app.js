@@ -28,7 +28,8 @@ import {repeat} from '../node_modules/lit-html/directives/repeat.js';
 
 const urlEl = document.querySelector('#url');
 const runLHButton = document.querySelector('#runlh');
-const downloadReportButton = document.querySelector('#downloadreport');
+const downloadReport = document.querySelector('#downloadreport');
+const viewReport = document.querySelector('#viewreport');
 const lhScoresContainer = document.querySelector('lh-scores-container');
 
 function toggleButtons() {
@@ -43,7 +44,8 @@ function toggleButtons() {
 async function fetchLighthouseHistory(url) {
   toggleButtons();
   lhScoresContainer.url = url; // fetches + renders scores for the url.
-  downloadReportButton.href = `/lh/html?url=${url}&download`;
+  downloadReport.href = `/lh/html?url=${url}&download`;
+  viewReport.href = `/lh/html?url=${url}`;
   toggleButtons();
 }
 
