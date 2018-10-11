@@ -31,7 +31,8 @@ npm run start
 
 4. Build it
 
-To build the CSS/JS bundles, run:
+To build the CSS/JS bundles, run of `npm run build:js`, `npm run build:css`,
+or the single command:
 
 ```
 npm run build
@@ -69,10 +70,18 @@ Lists the latest `MAX_REPORTS` reports for the URL.
 GET /lh/reports
 ```
 
-Lists the URLs saved in the system:
+Lists the URLs that have been saved in the system.
 
 ```
 GET /lh/urls
+```
+
+Displays the latest Lighthouse HTML report for `url`. If the `download` param
+is included, the file is downloaded.
+
+```
+GET /lh/html?url="https://example.com"
+GET /lh/html?url=https://example.com&download
 ```
 
 Starts a new Lighthouse audit for `url`.
@@ -82,6 +91,16 @@ POST /lh/newaudit
 Content-Type: application/json
 
 {"url": "https://example.com"}
+```
+
+### Private handlers
+
+Seeds the db with the list of URLs in `seeds_urls.json` by scheduling a task
+to run a Lighthouse audit on each URL. **Note**: this handler can only run
+if there are no URLs already stored. It should be run if the db is ever cleared.
+
+```
+GET /lh/seed_urls
 ```
 
 Used by the cron job (see `cron.yaml`) to update Lighthouse scores for each
