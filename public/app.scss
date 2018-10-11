@@ -18,6 +18,7 @@ body {
 #enterurl {
   display: flex;
   justify-content: space-between;
+  align-items: center;
 }
 #url {
   padding: 8px 0;
@@ -33,7 +34,7 @@ body {
     border: 1px solid var(--site-blue);
   }
 }
-#runlh {
+.blue-button {
   padding: 16px;
   text-transform: uppercase;
   background-color: var(--site-blue);
@@ -44,6 +45,13 @@ body {
   font-weight: 300;
   white-space: nowrap;
   cursor: pointer;
+  text-decoration: none;
+  margin: 0 4px;
+}
+.download-icon {
+  background: url('data:image/svg+xml;utf8,<svg height="24" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg"><path fill="#555" d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/><path d="M0 0h24v24H0z" fill="none"/></svg>') no-repeat 50% 50%;
+  height: 50px;
+  width: 50px;
 }
 .lh-running-msg {
   display: none;

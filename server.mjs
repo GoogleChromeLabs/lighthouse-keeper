@@ -21,6 +21,7 @@ import express from 'express';
 import bodyParser from 'body-parser';
 import {createTask} from './tasks.mjs';
 import * as lighthouse from './lighthouse-data.mjs';
+import fileNamer from 'lighthouse/lighthouse-core/lib/file-namer.js';
 
 const PORT = process.env.PORT || 8080;
 const LHR = JSON.parse(fs.readFileSync('./lhr.json', 'utf8'));
@@ -41,7 +42,22 @@ app.use(bodyParser.raw());
 app.use(bodyParser.json());
 // app.use(bodyParser.text());
 app.use(express.static('public'));
-app.use('/node_modules', express.static('node_modules'))
+app.use('/node_modules', express.static('node_modules'));
+
+app.get('/lh/seed_urls', async (req, resp) => {
+  let urls = await lighthouse.getAllSavedUrls();
+  if (urls.length) {
+    return resp.status(401).send('URLs have already been seeded.');
+  }
+
+  // Schedule async task to fetch a new LH report for each URL in the seed.
+  urls = JSON.parse(fs.readFileSync('./url_seed.json', 'utf8'));
+  for (const url of urls) {
+    createTask(url).catch(err => console.error(err));
+  }
+
+  resp.status(201).send('Update tasks scheduled');
+});
 
 app.get('/cron/update_lighthouse_scores', async (req, resp) => {
   if (!req.get('X-Appengine-Cron')) {
@@ -55,7 +71,7 @@ app.get('/cron/update_lighthouse_scores', async (req, resp) => {
     createTask(url).catch(err => console.error(err));
   }
 
-  resp.status(200).send('Update tasks scheduled');
+  resp.status(201).send('Update tasks scheduled');
 });
 
 // Enable cors on rest of handler.
@@ -99,6 +115,11 @@ app.get('/lh/html', async (req, resp, next) => {
   const latestRun = (await lighthouse.getReports(url, 1))[0];
   if (!latestRun) {
     return resp.status(404).send(`No report found for ${url}`);
+  }
+
+  if ('download' in req.query) {
+    const filename = `${fileNamer.getFilenamePrefix(latestRun.lhr)}.html`;
+    resp.set('Content-Disposition', `attachment; filename=${filename}`);
   }
 
   const reportHTML = lighthouse.generateReport(latestRun.lhr, 'html');

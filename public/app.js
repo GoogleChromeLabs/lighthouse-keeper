@@ -28,6 +28,7 @@ import {repeat} from '../node_modules/lit-html/directives/repeat.js';
 
 const urlEl = document.querySelector('#url');
 const runLHButton = document.querySelector('#runlh');
+const downloadReportButton = document.querySelector('#downloadreport');
 const lhScoresContainer = document.querySelector('lh-scores-container');
 
 function toggleButtons() {
@@ -42,6 +43,7 @@ function toggleButtons() {
 async function fetchLighthouseHistory(url) {
   toggleButtons();
   lhScoresContainer.url = url; // fetches + renders scores for the url.
+  downloadReportButton.href = `/lh/html?url=${url}&download`;
   toggleButtons();
 }
 
@@ -64,6 +66,13 @@ async function querySavedUrls() {
 
   render(tmpl, document.querySelector('#savedurls'));
 }
+
+// downloadReportButton.addEventListener('click', async e => {
+//   console.log('Fetchhing report...');
+//   document.body.classList.add('lh-audit-running');
+//   downloadReportButton.href = `/lh/report?url=${url}`;
+//   document.body.classList.remove('lh-audit-running');
+// });
 
 runLHButton.addEventListener('click', async e => {
   const url = urlEl.value;
@@ -95,7 +104,6 @@ urlEl.addEventListener('change', async e => {
 
 querySavedUrls(); // async
 urlEl.dispatchEvent(new CustomEvent('change')); // Same code path as url input's change handler. Invoke it.
-
 
 // // Register element.
 // import('./sparkline-element.min.js').then(({SparklineElement}) => {
