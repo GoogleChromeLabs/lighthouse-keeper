@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import {html, render} from '../node_modules/lit-html/lit-html.js';
+import {html, render, svg} from '../node_modules/lit-html/lit-html.js';
 
 const clampTo2Decimals = val => Math.round(val * 100) / 100;
 
@@ -50,7 +50,7 @@ class SparklineElement extends HTMLElement {
    * @export
    */
   static get observedAttributes() {
-    return ['fill', 'showfirst', 'showlast'];
+    return ['fill', 'showfirst', 'showlast', 'dashed'];
   }
 
   /**
@@ -76,6 +76,26 @@ class SparklineElement extends HTMLElement {
   set values(val) {
     this.values_ = val;
     this.update();
+  }
+
+  /**
+   * @return {boolean}
+   * @export
+   */
+  get dashed() {
+    return this.hasAttribute('dashed');
+  }
+
+  /**
+   * @param {boolean} val
+   * @export
+   */
+  set dashed(val) {
+    if (Boolean(val)) {
+      this.setAttribute('dashed', '');
+    } else {
+      this.removeAttribute('dashed');
+    }
   }
 
   /**
@@ -262,10 +282,10 @@ class SparklineElement extends HTMLElement {
    */
   generateTemplate_() {
     // Determine color of chart based on last value.
-    const colorClass = this.computeColorClass_(this.values.slice(-1))
+    const colorClass = this.computeColorClass_(this.values.slice(-1));
     const {path, firstPoint, lastPoint} = this.generatePath_();
 
-    const template = html`
+    const template = svg`
       <svg xmlns="http://www.w3.org/2000/svg"
           width="100%" height="130%"
           style="padding:${this.padding_}px;">
@@ -344,14 +364,16 @@ class SparklineElement extends HTMLElement {
 
     const path = this.querySelector('.path');
     const length = path.getTotalLength();
-    path.style.strokeDasharray = length;
-    path.style.strokeDashoffset = length;
+    path.style.strokeDasharray = this.dashed ? '5' : length;
+    path.style.strokeDashoffset = this.dashed ? '0' : length;
 
     this.setAttribute('aria-valuenow', this.datapoints.slice(-1)[0].score);
 
-    requestAnimationFrame(() => {
-      this.querySelector('#gradient').classList.add('fadein');
-    });
+    if (this.fill) {
+      requestAnimationFrame(() => {
+        this.querySelector('#gradient').classList.add('fadein');
+      });
+    }
   }
 }
 

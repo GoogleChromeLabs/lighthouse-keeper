@@ -5,6 +5,12 @@
 }
 
 spark-line {
+  &[dashed] {
+    .green, .red, .orange {
+      stop-color: grey;
+      stroke: grey;
+    }
+  }
   .red {
     --fail-color: hsl(1, 73%, 45%);
     stop-color: red;

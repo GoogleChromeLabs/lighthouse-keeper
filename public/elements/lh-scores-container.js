@@ -19,6 +19,35 @@ import {html, render} from '../node_modules/lit-html/lit-html.js';
 
 const CI_HOST = location.origin.includes('localhost') ? location.origin :
     'https://webdev-dot-lighthouse-ci.appspot.com';
+
+/**
+ * The "median" is the "middle" value in the list of numbers.
+ * @param {!Array<number>} numbers An array of numbers.
+ * @return {number} The calculated median value from the specified numbers.
+ */
+function median(numbers) {
+  // median of [3, 5, 4, 4, 1, 1, 2, 3] = 3
+  let median = 0
+  numbers.sort();
+  if (numbers.length % 2 === 0) {  // is even
+    // average of two middle numbers
+    median = (numbers[numbers.length / 2 - 1] + numbers[numbers.length / 2]) / 2;
+  } else { // is odd
+    // middle number only
+    median = numbers[(numbers.length - 1) / 2];
+  }
+  return median;
+}
+
+/**
+ * Calculates the average of a set of numbers.
+ * @param {!Array<number>} numbers An array of numbers.
+ * @return {number}
+ */
+function average(numbers) {
+  return numbers.reduce((accum, val) => accum += val, 0) / numbers.length;
+}
+
 /**
  * Render Lighthouse scores.
  * 1. Setting the url attribute or property on the element fetches
@@ -34,6 +63,9 @@ class LHScoresContainerElement extends HTMLElement {
 
     /** @private {!Array<!Object>} */
     this.runs_ = [];
+
+    /** @private {!Array<!Object>} */
+    this.medians_ = [];
   }
 
   /**
@@ -111,52 +143,99 @@ class LHScoresContainerElement extends HTMLElement {
     const detail = {};
 
     try {
-      this.runs_ = await fetch(`${CI_HOST}/lh/reports?url=${this.url}`)
-        .then((resp) => resp.json());
-      detail.runs = this.runs_;
+      this.runs_ = fetch(`${CI_HOST}/lh/reports?url=${this.url}`)
+          .then((resp) => resp.json());
+      this.medians_ = fetch(`${CI_HOST}/lh/medians?url=all`)
+          .then((resp) => resp.json());
       this.update_();
+
+      await Promise.all([this.runs_, this.medians_]);
+      this.dispatchEvent(new CustomEvent('lighthouse-scores', {
+        detail: {runs: this.runs_},
+      }));
     } catch (err) {
       console.warn('Error fetching Lighthouse reports for URL.', err);
-      detail.errors = err.message;
-      this.runs_ = [];
+      this.dispatchEvent(new CustomEvent('lighthouse-scores', {
+        detail: {errors: err.message},
+      }));
     }
-
-    this.dispatchEvent(new CustomEvent('lighthouse-scores', {detail}));
   }
 
   /**
    * @private
    */
   update_() {
-    if (!this.runs_.length) {
-      console.warn('No LH runs fetched to render.');
-      return;
-    }
+    // if (!this.runs_.length) {
+    //   console.warn('No LH runs fetched to render.');
+    //   return;
+    // }
 
     render(html``, this); // force lit to render entire DOM.
 
-    const tmpls = this.categories.map((cat, i) => {
+    const cards = this.categories.map((cat, i) => {
       // Get category's score for each run.
-      const values = this.runs_.map((run) => {
-        const lhr = run.lhrSlim || run.lhr;
-        if (!lhr) {
-          console.warn(`No Lighthouse reports for ${this.url}`);
-        }
-        return lhr.find(item => item.id === cat.id).score * 100;
+      const values = this.runs_.then((runs) => {
+        return runs.map((run) => {
+          const lhr = run.lhrSlim;
+          if (!lhr) {
+            console.warn(`No Lighthouse reports for ${this.url}`);
+          }
+          return lhr.find(item => item.id === cat.id).score * 100;
+        });
       });
 
-      const scoreAttr = values.slice(-1)[0] / 100; // Display latest score.
+      const medianStat = values.then((vals) => Math.round(median(vals)));
+      const averageStat = values.then((vals) => Math.round(average(vals)));
 
       return html`
         <div class="lh-score-card">
           <div class="lh-score-card__header">
             <span class="lh-score-card__title">${cat.title}</span>
-            <gauge-element id="${cat.id}-score-gauge" score="${scoreAttr}"></gauge-element>
+            ${values.then((vals) => {
+              const scoreAttr = vals.slice(-1)[0] / 100;
+              return html`<gauge-element id="${cat.id}-score-gauge" score="${scoreAttr}"></gauge-element>`;
+            })}
           </div>
-          <spark-line id="${cat.id}-score-line" fill showfirst showlast .values="${values}"></spark-line>
+          <div style="position:relative">
+            ${values.then(vals => {
+              return html`<spark-line id="${cat.id}-score-line" fill showlast .values="${vals}"></spark-line>`;
+            })}
+            ${this.medians_.then(medians => {
+              const vals = [medians[cat.id], medians[cat.id]];
+              return html`<spark-line .values="${vals}" dashed></spark-line>`;
+            })}
+          </div>
+          <div class="lh-score__stats">
+            Median: ${medianStat},
+            Average: ${averageStat}
+          </div>
         </div>`;
     });
-    render(html`${tmpls}`, this);
+
+    // const lastAuditTimestamp = new Date(this.runs_.slice(-1)[0].auditedOn);
+    const lastAuditTimestamp = this.runs_.then((runs) => {
+      return new Date(runs.slice(-1)[0].auditedOn).toLocaleString();
+    });
+
+    const tmpl = html`
+      <div class="lh-score__lastaudit lh-score__label">
+        <span>Last audited:</span><span>${lastAuditTimestamp}</span>
+      </div>
+      <div class="lh-score-cards">${cards}</div>
+      <div class="lh-score-card__scorescale lh-score__label">
+        <div class="lh-score-card__legend">
+          <span><b>- - -</b></span>&nbsp;&nbsp;
+          <span>Median for web.dev sites</span>
+        </div>
+        <div class="lh-score-card__legend">
+          <span>Score scale:</span>
+          <span class="lh-score-card__range lh-score--fail">0-49</span>
+          <span class="lh-score-card__range lh-score--average">50-89</span>
+          <span class="lh-score-card__range lh-score--pass">90-100</span>
+        </div>
+      </div>`;
+
+    render(tmpl, this);
   }
 }
 

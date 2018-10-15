@@ -1,11 +1,20 @@
 lh-scores-container {
-  display: flex;
+  $padding: 16px;
+  $cardsHeight: 250px;
+  display: block;
   border-radius: 3px;
-  height: 200px;
-  margin: 32px 0;
+  margin: ($padding * 2) 0;
+  // Prevent layout thrashing. Size to same as final container.
+  min-height: $cardsHeight + ($padding * 2) + (18*2);
+
+  .lh-score-cards {
+    display: flex;
+    height: $cardsHeight;
+  }
 
   .lh-score-card {
-    padding: 16px;
+    position: relative;
+    padding: $padding;
     width: 20%;
     height: 100%;
     border: 1px solid #ccc;
@@ -33,6 +42,12 @@ lh-scores-container {
     display: inline-block;
     width: 100%;
     height: 100px;
+
+    &[dashed] {
+      pointer-events: none;
+      position: absolute;
+      top: 0;
+    }
   }
   gauge-element {
     --circle-size: 50px;
@@ -40,5 +55,53 @@ lh-scores-container {
     height: var(--circle-size);
     contain: content;
     display: block;
+  }
+
+  .lh-score-card__scorescale {
+    text-align: right;
+  }
+
+  .lh-score__label {
+    margin: 16px 0;
+    font-size: 14px;
+    color: #757575;
+  }
+
+  .lh-score-card__legend {
+    display: inline-block;
+    margin-left: 16px;
+  }
+
+  .lh-score__stats {
+    font-size: 12px;
+    color: #757575;
+    position: absolute;
+    bottom: $padding;
+    width: 100%;
+    left: $padding + 10;
+  }
+
+  .lh-score-card__range  {
+    margin-left: 4px;
+    white-space: nowrap;
+
+    &::before {
+      content: '';
+      width: 14px;
+      height: 8px;
+      border-radius: 4px;
+      display: inline-block;
+      margin: 0 5px;
+    }
+
+    &.lh-score--fail::before {
+      background-color: hsl(1, 73%, 45%);
+    }
+    &.lh-score--average::before {
+      background-color: hsl(31, 100%, 45%);
+    }
+    &.lh-score--pass::before {
+      background-color: hsl(139, 70%, 30%);
+    }
   }
 }

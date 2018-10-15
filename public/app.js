@@ -86,7 +86,7 @@ runLHButton.addEventListener('click', async e => {
   await fetch('/lh/newaudit', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({url}),
+    body: JSON.stringify({url, replace: true}),
   });
 
   console.log('Done.');
