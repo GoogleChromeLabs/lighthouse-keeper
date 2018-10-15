@@ -24,8 +24,6 @@ const LOCATION = 'us-central1';
 const PROJECT_ID = JSON.parse(fs.readFileSync('./serviceAccount.json')).project_id;
 
 async function createTask(url) {
-  console.log('Sending task');
-
   try {
     const client = new cloudTasks.CloudTasksClient();
     const response = await client.createTask({
@@ -45,10 +43,8 @@ async function createTask(url) {
       },
     });
     const task = response[0].name;
-    console.log(`Created task ${task}`);
     return task;
   } catch (err) {
-
     console.error(`Error in createTask: ${err.message || err}`);
   }
 
