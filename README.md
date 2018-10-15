@@ -13,15 +13,16 @@ Server that handles the web.dev profile page bits:
 npm i
 ```
 
-2. Decrypt the service account json file:
+2. Decrypt the service account and memcache json files:
 
 ```
 npm run decrypt
 ```
 
-You will be prompted to for a passphrase to decrypt `serviceAccount.json.enc`.
-This file is required for the backend to communicate with Firestore.
-The password can be found in Google's shared password tool.
+You will be prompted to for a passphrase to decrypt `serviceAccount.json.enc`
+and `memcacheCredentials.json.enc`. These files are required for the backend
+to communicate with Firestore and the Redis memcache service. The password can
+be found in Google's shared password tool.
 
 3. Run the web server:
 

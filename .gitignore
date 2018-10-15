@@ -4,3 +4,4 @@ node_modules
 *.css.map
 *-error.log
 serviceAccount.json
+memcacheCredentials.json

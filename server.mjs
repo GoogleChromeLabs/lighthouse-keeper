@@ -20,6 +20,7 @@ import fs from 'fs';
 import express from 'express';
 import bodyParser from 'body-parser';
 import {createTask} from './tasks.mjs';
+import Firestore from '@google-cloud/firestore';
 import * as lighthouse from './lighthouse-data.mjs';
 import fileNamer from 'lighthouse/lighthouse-core/lib/file-namer.js';
 
@@ -27,6 +28,14 @@ const PORT = process.env.PORT || 8080;
 const LHR = JSON.parse(fs.readFileSync('./lhr.json', 'utf8'));
 
 const app = express();
+
+function requireUrlQueryParam(req, resp, next) {
+  const url = req.query.url;
+  if (!url) {
+    return resp.status(400).send('No url provided.');
+  }
+  next();
+}
 
 app.use(function forceSSL(req, res, next) {
   const fromCron = req.get('X-Appengine-Cron');
@@ -74,7 +83,7 @@ app.get('/cron/update_lighthouse_scores', async (req, resp) => {
   resp.status(201).send('Update tasks scheduled');
 });
 
-// Enable cors on rest of handler.
+// Enable cors on rest of handlers.
 app.use(function enableCors(req, res, next) {
   res.set('Access-Control-Allow-Origin', '*');
   next();
@@ -106,13 +115,13 @@ app.get('/lh/urls', async (req, resp) => {
   resp.status(200).json(await lighthouse.getAllSavedUrls());
 });
 
+app.use('/lh/html', requireUrlQueryParam);
 app.get('/lh/html', async (req, resp, next) => {
   const url = req.query.url;
-  if (!url) {
-    return resp.status(400).send('No url provided.');
-  }
-
-  const latestRun = (await lighthouse.getReports(url, 1))[0];
+  const latestRun = (await lighthouse.getReports(url, {
+    useCache: false,
+    maxResults: 1,
+  }))[0];
   if (!latestRun) {
     return resp.status(404).send(`No report found for ${url}`);
   }
@@ -122,17 +131,22 @@ app.get('/lh/html', async (req, resp, next) => {
     resp.set('Content-Disposition', `attachment; filename=${filename}`);
   }
 
-  const reportHTML = lighthouse.generateReport(latestRun.lhr, 'html');
-  resp.status(200).send(reportHTML);
+  // Send down LHR html report as response.
+  resp.status(200).send(lighthouse.generateReport(latestRun.lhr, 'html'));
 });
 
+app.use('/lh/reports', requireUrlQueryParam);
 app.get('/lh/reports', async (req, resp, next) => {
-  const url = req.query.url;
-  if (!url) {
-    return resp.status(400).send('No url provided.');
-  }
-  const reports = await lighthouse.getReports(url);
+  const reports = await lighthouse.getReports(req.query.url);
   resp.status(200).json(reports);
+});
+
+app.use('/lh/medians', requireUrlQueryParam);
+app.get('/lh/medians', async (req, resp, next) => {
+  const url = req.query.url;
+  const medians = url === 'all' ? await lighthouse.getMedianScoresOfAllUrls() :
+      await lighthouse.getMedianScores(url);
+  resp.status(200).json(medians);
 });
 
 app.post('/lh/newaudit', async (req, resp, next) => {
@@ -150,7 +164,9 @@ app.post('/lh/newaudit', async (req, resp, next) => {
     return resp.status(400).send('No url provided.');
   }
 
-  resp.status(201).json(await lighthouse.runLighthouse(url));
+  // Replace results when user is running new audit. Cron adds new entry.
+  const replace = !req.get('X-AppEngine-QueueName');
+  resp.status(201).json(await lighthouse.runLighthouse(url, replace));
 });
 
 app.use(function errorHandler(err, req, res, next) {

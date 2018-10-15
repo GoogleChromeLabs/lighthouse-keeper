@@ -16,8 +16,11 @@
     "deploy": "gcloud app deploy app.yaml --project lighthouse-ci",
     "deploy:queue": "gcloud app deploy queue.yaml --project lighthouse-ci",
     "deploy:cron": "gcloud app deploy cron.yaml --project lighthouse-ci",
-    "encrypt": "openssl aes-256-cbc -a -salt -in serviceAccount.json -out serviceAccount.json.enc",
-    "decrypt": "openssl aes-256-cbc -d -a -in serviceAccount.json.enc -out serviceAccount.json"
+    "encrypt:service": "openssl aes-256-cbc -a -salt -in serviceAccount.json -out serviceAccount.json.enc",
+    "decrypt:service": "openssl aes-256-cbc -d -a -in serviceAccount.json.enc -out serviceAccount.json",
+    "encrypt:memcache": "openssl aes-256-cbc -a -salt -in memcacheCredentials.json -out memcacheCredentials.json.enc",
+    "decrypt:memcache": "openssl aes-256-cbc -d -a -in memcacheCredentials.json.enc -out memcacheCredentials.json",
+    "decrypt": "npm run decrypt:service && npm run decrypt:memcache"
   },
   "engines": {
     "node": ">=8"
@@ -29,6 +32,7 @@
     "express": "^4.16.3",
     "lighthouse": "^3.2.1",
     "lit-html": "^0.12.0",
+    "memjs": "^1.2.0",
     "node-fetch": "2.1.2",
     "node-sass": "^4.9.3",
     "rollup": "^0.66.6",

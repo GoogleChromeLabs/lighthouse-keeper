@@ -2370,6 +2370,11 @@ media-typer@0.3.0:
   resolved "https://registry.yarnpkg.com/media-typer/-/media-typer-0.3.0.tgz#8710d7af0aa626f8fffa1ce00168545263255748"
   integrity sha1-hxDXrwqmJvj/+hzgAWhUUmMlV0g=
 
+memjs@^1.2.0:
+  version "1.2.0"
+  resolved "https://registry.yarnpkg.com/memjs/-/memjs-1.2.0.tgz#3c2a28d9105f26ff37d69254bef35c804b3c6f5b"
+  integrity sha512-FLdqY/9aRcU0i/gfYHdzzuN6BNa7ZrVgVT/xeVr4Y+nV5f1IzOPzDdV+LLqWK0hWv4mBjRPOjciq3V8s3C8ajg==
+
 meow@^3.7.0:
   version "3.7.0"
   resolved "https://registry.yarnpkg.com/meow/-/meow-3.7.0.tgz#72cb668b425228290abbfa856892587308a801fb"
