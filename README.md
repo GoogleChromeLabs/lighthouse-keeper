@@ -4,6 +4,9 @@ Server that handles the web.dev profile page bits:
 
 - Runs Lighthouse against a URL and stores reports over time.
 - Cron job that schedules tasks to update scores for each URL.
+- A demo page and set of example web components that interact with the backend in `public/`.
+
+<img width="1081" alt="screen shot 2018-10-11 at 9 09 35 am" src="https://user-images.githubusercontent.com/238208/46818166-679b6c80-cd35-11e8-8989-d5b1f50abd99.png">
 
 ## Development
 
