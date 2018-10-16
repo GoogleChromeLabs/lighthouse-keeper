@@ -117,18 +117,23 @@ export async function runLighthouse(url, replace=true) {
   let json = {};
 
   try {
-    const lhr = await fetch(CI_URL, {
+    const resp = await fetch(CI_URL, {
       method: 'POST',
       body: JSON.stringify({url, format: 'json'}),
       headers: {
         'Content-Type': 'application/json',
         'X-API-KEY': CI_API_KEY,
       }
-    }).then(resp => resp.json());
+    });
 
+    if (!resp.ok) {
+      throw new Error(`(${resp.status}) ${resp.statusText}`);
+    }
+
+    const lhr = await resp.json();
     json = await saveReport(url, lhr, replace);
   } catch (err) {
-    console.error(`Error running Lighthouse: ${err}`);
+    json.errors = `Error running Lighthouse - ${err}`;
   }
 
   return json;

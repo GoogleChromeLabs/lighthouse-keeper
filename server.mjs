@@ -168,7 +168,12 @@ app.post('/lh/newaudit', async (req, resp, next) => {
 
   // Replace results when user is running new audit. Cron adds new entry.
   const replace = !req.get('X-AppEngine-QueueName');
-  resp.status(201).json(await lighthouse.runLighthouse(url, replace));
+  const json = await lighthouse.runLighthouse(url, replace);
+  if (json.errors) {
+    resp.status(400).json(json);
+    return;
+  }
+  resp.status(201).json(json);
 });
 
 app.use(function errorHandler(err, req, res, next) {
