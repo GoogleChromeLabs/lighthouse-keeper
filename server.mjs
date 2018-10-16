@@ -86,6 +86,8 @@ app.get('/cron/update_lighthouse_scores', async (req, resp) => {
 // Enable cors on rest of handlers.
 app.use(function enableCors(req, res, next) {
   res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Headers', 'Content-Type');
+  res.set('Access-Control-Allow-Methods', 'POST, GET');
   next();
 });
 
