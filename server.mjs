@@ -124,8 +124,9 @@ app.get('/lh/html', async (req, resp, next) => {
     useCache: false,
     maxResults: 1,
   }))[0];
+
   if (!latestRun) {
-    return resp.status(404).send(`No report found for ${url}`);
+    return resp.status(404).json({errors: `No results found for ${url}`});
   }
 
   if ('download' in req.query) {
@@ -139,8 +140,12 @@ app.get('/lh/html', async (req, resp, next) => {
 
 app.use('/lh/reports', requireUrlQueryParam);
 app.get('/lh/reports', async (req, resp, next) => {
-  const reports = await lighthouse.getReports(req.query.url);
-  resp.status(200).json(reports);
+  const url = req.query.url;
+  const reports = await lighthouse.getReports(url);
+  if (reports.length) {
+    return resp.status(200).json(reports);
+  }
+  resp.status(404).json({errors: `No results found for ${url}`});
 });
 
 app.use('/lh/medians', requireUrlQueryParam);
@@ -170,8 +175,7 @@ app.post('/lh/newaudit', async (req, resp, next) => {
   const replace = !req.get('X-AppEngine-QueueName');
   const json = await lighthouse.runLighthouse(url, replace);
   if (json.errors) {
-    resp.status(400).json(json);
-    return;
+    return resp.status(400).json(json);
   }
   resp.status(201).json(json);
 });

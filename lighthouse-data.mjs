@@ -24,7 +24,7 @@ const SERVICE_ACCOUNT_FILE = './serviceAccount.json';
 const CI_URL = 'https://builder-dot-lighthouse-ci.appspot.com/ci';
 const CI_API_KEY = 'webdev';
 
-const MAX_REPORTS = 20;
+const MAX_REPORTS = 10;
 
 function slugify(url) {
   return url.replace(/\//g, '__');
@@ -84,6 +84,11 @@ export async function saveReport(url, lhr, replace) {
       .orderBy('auditedOn', 'desc').limit(1).get();
 
   const lastDoc = querySnapshot.docs[0];
+
+  // New URL added to system. Delete cached list.
+  if (!lastDoc) {
+    await memcache.delete('getAllSavedUrls');
+  }
 
   if (replace && lastDoc) {
     await lastDoc.ref.update(data); // Replace last entry with updated vals.
@@ -261,11 +266,13 @@ export async function getMedianScoresOfAllUrls(
  * @param {{maxResults: number=, useCache: boolean=}}
  *     Config object.
  * @param {boolean=} useCache If false, bypasses cache. Defaults to true.
- * @return {!Array<Object>} The reports.
+ * @return {!Array<Object>|null} The reports.
  * @export
  */
 export async function getReports(url,
     {maxResults, useCache}={maxResults: MAX_REPORTS, useCache: true}) {
+  // TODO: This gets updated even if URL stored in system yet. But we want
+  // to call this before results from cache are returned.
   await updateLastViewed(url); // "touch" last viewed timestamp for URL.
 
   const cacheKey = `getReports_${slugify(url)}`;
@@ -280,7 +287,7 @@ export async function getReports(url,
   let runs = [];
 
   if (querySnapshot.empty) {
-    // runs.push(await runLighthouse(url));
+    return runs;
   } else {
     querySnapshot.forEach(doc => runs.push(doc.data()));
     runs.reverse(); // Order reports from oldest -> most recent.
@@ -319,5 +326,3 @@ const db = new Firestore({
 });
 
 const memcache = new Memcache();
-// memcache.delete('getMedianScoresOfAllUrls').then(s => console.log(s));
-// memcache.delete('getAllSavedUrls').then(deleted => console.log(deleted));
