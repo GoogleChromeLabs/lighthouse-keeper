@@ -141,8 +141,17 @@ app.get('/lh/html', async (req, resp, next) => {
 app.use('/lh/reports', requireUrlQueryParam);
 app.get('/lh/reports', async (req, resp, next) => {
   const url = req.query.url;
-  const reports = await lighthouse.getReports(url);
+  const sinceDate = req.query.since;
+
+  let reports = await lighthouse.getReports(url);
   if (reports.length) {
+    // Filter results from before start date.
+    if (sinceDate) {
+      reports = reports.filter(report => {
+        return new Date(report.auditedOn) >= new Date(sinceDate);
+      });
+    }
+
     return resp.status(200).json(reports);
   }
   resp.status(404).json({errors: `No results found for ${url}`});
