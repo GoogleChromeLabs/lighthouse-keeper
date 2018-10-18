@@ -137,7 +137,7 @@ export async function runLighthouse(url, replace=true) {
 
     const lhr = await resp.json();
 
-    if (lhr.runtimeError) {
+    if (lhr.runtimeError && lhr.runtimeError.code !== 'NO_ERROR') {
       throw new Error(`${lhr.runtimeError.code} ${lhr.runtimeError.message}`);
     }
 
