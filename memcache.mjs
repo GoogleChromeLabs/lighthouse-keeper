@@ -1,5 +1,5 @@
 /**
- * Copyright 2018 Google Inc., PhantomJS Authors All rights reserved.
+ * Copyright 2018 Google Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
