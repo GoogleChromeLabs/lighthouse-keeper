@@ -1,5 +1,5 @@
 /**
- * Copyright 2018 Google Inc., PhantomJS Authors All rights reserved.
+ * Copyright 2018 Google Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ import fetch from 'node-fetch';
 import Firestore from '@google-cloud/firestore';
 import ReportGenerator from 'lighthouse/lighthouse-core/report/report-generator.js';
 import Memcache from './memcache.mjs';
+import LighthouseAPI from './lighthouse-api.mjs';
 
 const SERVICE_ACCOUNT_FILE = './serviceAccount.json';
 const CI_URL = 'https://builder-dot-lighthouse-ci.appspot.com/ci';
@@ -166,6 +167,34 @@ export async function getUrlsLastViewedBefore(cutoffDate) {
         staleUrls.push(doc.id);
       }));
   return staleUrls;
+}
+
+/**
+ * Audits a site using the Lighthouse API.
+ * @param {string} url Url to audit.
+ * @return {!Object} API response.
+ * @export
+ */
+export async function runLighthouseAPI(url) {
+  const API_KEY = 'AIzaSyAwlPiPJIkTejgqqH01v9DmtPoPeOPXDUQ'; // PSI's key
+  const api = new LighthouseAPI(API_KEY);
+
+  let json = {};
+  try {
+    json = await api.audit(url);
+
+    // https://github.com/GoogleChrome/lighthouse/issues/6336
+    if (json.lhr.runtimeError && json.lhr.runtimeError.code !== 'NO_ERROR') {
+      throw new Error(
+          `${json.lhr.runtimeError.code} ${json.lhr.runtimeError.message}`);
+    }
+
+  } catch (err) {
+    console.log(err);
+    json.errors = `Error running Lighthouse API - ${err}`;
+  }
+
+  return json;
 }
 
 /**
@@ -377,7 +406,7 @@ export async function deleteReports(url) {
 }
 
 /**
- *  Deletes url metadata.
+ * Deletes url metadata.
  * @param {string} url
  * @return {!Promise}
  * @export

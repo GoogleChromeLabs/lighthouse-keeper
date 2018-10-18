@@ -216,6 +216,16 @@ app.post('/lh/newaudit', async (req, resp, next) => {
   resp.status(201).json(json);
 });
 
+app.use('/lh/api', requireUrlQueryParam);
+app.get('/lh/api', async (req, resp, next) => {
+  const url = req.query.url;
+  try {
+    resp.status(200).json(await lighthouse.runLighthouseAPI(url));
+  } catch (err) {
+    next(err);
+  }
+});
+
 app.use(function errorHandler(err, req, res, next) {
   if (res.headersSent) {
     return next(err);

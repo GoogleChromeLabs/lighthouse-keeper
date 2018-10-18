@@ -1,0 +1,106 @@
+/**
+ * Copyright 2018 Google Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+import url from 'url';
+const URL = url.URL;
+import fetch from 'node-fetch';
+
+/**
+ * Wrapper for interactions with the Lighthouse API.
+ */
+class LighthouseAPI {
+  /**
+   * @export
+   */
+  static get version() { return 'v5'; }
+
+  /**
+   * @export
+   */
+  static get endpoints() {
+    const scope = 'https://www-googleapis-test.sandbox.google.com/pagespeedonline';
+    return {
+      scope,
+      audit: `${scope}/${this.version}/runPagespeed`,
+    };
+  }
+
+  /**
+   * @constructor
+   * @param {string} apiKey
+   */
+  constructor(apiKey) {
+    this.apiKey = apiKey;
+  }
+
+  /**
+   * Audits a site.
+   * @param {string} url Url to audit.
+   * @return {!Object} API response.
+   * @export
+   */
+  async audit(url) {
+    const auditUrl = new URL(LighthouseAPI.endpoints.audit);
+    auditUrl.searchParams.set('key', this.apiKey);
+    auditUrl.searchParams.set('locale', 'en_US');
+    auditUrl.searchParams.set('strategy', 'mobile');
+    auditUrl.searchParams.set('url', url);
+
+    const endpoint = auditUrl; // `${auditUrl}&url=${encodeURIComponent(url)}`;
+
+    try {
+      const resp = await fetch(endpoint);
+      if (!resp.ok) {
+        throw Error(`${resp.status} from Lighthouse API: ${resp.statusText}`);
+      }
+
+      const json = await resp.json();
+
+      if (json.captchaResult && json.captchaResult !== 'CAPTCHA_NOT_NEEDED') {
+        throw Error(`Lighthouse API response: ${json.captchaResult}`);
+      }
+
+      if (json.error) {
+        throw Error(json.error.errors);
+      }
+
+      let lhr = json.lighthouseResponse;
+      if (!lhr) {
+        throw Error('Lighthouse API response: missing lighthouseResponse.');
+      }
+
+      // TODO(ericbidelman): LHR results in object are a string but might
+      // become an object in the future. Support both for now.
+      lhr = (typeof lhr === 'string') ? JSON.parse(lhr) : lhr;
+      delete lhr.i18n; // Remove extra cruft.
+
+      let crux = null;
+      if (json.loadingExperience || json.originLoadingExperience) {
+        crux = {
+          loadingExperience: json.loadingExperience,
+          originLoadingExperience: json.originLoadingExperience,
+        };
+      }
+
+      return {lhr, crux};
+    } catch (err) {
+      console.error(err);
+      throw err;
+    }
+  }
+}
+
+export default LighthouseAPI;
