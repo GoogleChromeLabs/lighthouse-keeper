@@ -136,6 +136,11 @@ export async function runLighthouse(url, replace=true) {
     }
 
     const lhr = await resp.json();
+
+    if (lhr.runtimeError) {
+      throw new Error(`${lhr.runtimeError.code} ${lhr.runtimeError.message}`);
+    }
+
     json = await saveReport(url, lhr, replace);
   } catch (err) {
     json.errors = `Error running Lighthouse - ${err}`;
@@ -271,13 +276,10 @@ export async function getMedianScoresOfAllUrls(
  */
 export async function getReports(url,
     {maxResults, useCache}={maxResults: MAX_REPORTS, useCache: true}) {
-  // TODO: This gets updated even if URL stored in system yet. But we want
-  // to call this before results from cache are returned.
-  await updateLastViewed(url); // "touch" last viewed timestamp for URL.
-
   const cacheKey = `getReports_${slugify(url)}`;
   const val = await memcache.get(cacheKey);
   if (val && useCache) {
+    await updateLastViewed(url); // "touch" last viewed timestamp for URL.
     return val;
   }
 
@@ -291,7 +293,7 @@ export async function getReports(url,
   } else {
     querySnapshot.forEach(doc => runs.push(doc.data()));
     runs.reverse(); // Order reports from oldest -> most recent.
-    // await updateLastViewed(url); // "touch" url's last viewed date.
+    await updateLastViewed(url); // "touch" url's last viewed date.
   }
 
   runs = runs.map(r => {
