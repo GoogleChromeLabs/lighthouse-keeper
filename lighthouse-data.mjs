@@ -137,6 +137,7 @@ export async function runLighthouse(url, replace=true) {
 
     const lhr = await resp.json();
 
+    // https://github.com/GoogleChrome/lighthouse/issues/6336
     if (lhr.runtimeError && lhr.runtimeError.code !== 'NO_ERROR') {
       throw new Error(`${lhr.runtimeError.code} ${lhr.runtimeError.message}`);
     }
