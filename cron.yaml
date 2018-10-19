@@ -3,6 +3,6 @@ cron:
   url: /cron/update_lighthouse_scores
   schedule: every day 23:00
   timezone: America/Los_Angeles
-  target: webdev
+  target: lighthouse
   retry_parameters:
     job_retry_limit: 1
