@@ -18,7 +18,7 @@
 import {html, render} from '../node_modules/lit-html/lit-html.js';
 
 const CI_HOST = location.origin.includes('localhost') ? location.origin :
-    'https://webdev-dot-lighthouse-ci.appspot.com';
+    'https://lighthouse-dot-webdotdevsite.appspot.com';
 
 /**
  * The "median" is the "middle" value in the list of numbers.
