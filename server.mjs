@@ -27,6 +27,12 @@ import fileNamer from 'lighthouse/lighthouse-core/lib/file-namer.js';
 const PORT = process.env.PORT || 8080;
 const LHR = JSON.parse(fs.readFileSync('./lhr.json', 'utf8'));
 
+/**
+ * Number of days after which data is considered stale.
+ * @type {number}
+ * */
+const STALE_DATA_TRESHOLD = 60;
+
 const app = express();
 
 function requireUrlQueryParam(req, resp, next) {
@@ -81,6 +87,26 @@ app.get('/cron/update_lighthouse_scores', async (req, resp) => {
   }
 
   resp.status(201).send('Update tasks scheduled');
+});
+
+app.get('/cron/delete_stale_lighthouse_reports', async (req, resp) => {
+  if (!req.get('X-Appengine-Cron')) {
+    return resp.status(403).send(
+        'Sorry, handler can only be run as a GAE cron job.');
+  }
+
+  const dateOffset = (24 * 60 * 60 * 1000) * STALE_DATA_TRESHOLD; // In ms
+  let cutoffDate = new Date();
+  cutoffDate.setTime(cutoffDate.getTime() - dateOffset);
+
+  const urls = await lighthouse.getUrlsViewedBefore(cutoffDate);
+  Promise.all(urls.map(url => {
+      return lighthouse.deleteReports(url).then(() => lighthouse.deleteMetadata(url));
+    }))
+    .then(async () => {
+      await lighthouse.getMedianScoresOfAllUrls();
+      resp.status(201).send('Stale LH runs removed');
+    });
 });
 
 // Enable cors on rest of handlers.

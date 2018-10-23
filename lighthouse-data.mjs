@@ -151,6 +151,23 @@ export async function runLighthouse(url, replace=true) {
 }
 
 /**
+ * Returns urls with lastViewed date older than cutoff date.
+ * @return {Array<string>}
+ * @export
+ */
+export async function getUrlsViewedBefore(cutoffDate) {
+  const metaCollection = db.collection('meta');
+  const staleUrls = [];
+  await metaCollection
+      .where('lastViewed', '<', cutoffDate)
+      .get()
+      .then(snapshot => snapshot.forEach(doc => {
+        staleUrls.push(doc.id)
+      }));
+  return staleUrls;
+}
+
+/**
  * Returns all the URLs stored in the system.
  * @param {{useCache: boolean=}} Config object.
  * @return {!Promise<string>}
@@ -309,6 +326,55 @@ export async function getReports(url,
   }
 
   return runs;
+}
+
+function deleteBatch_(query, resolve, reject) {
+  query.get().then((snapshot) => {
+      if (snapshot.size == 0) {
+        return 0;
+      }
+      const batch = db.batch();
+      snapshot.docs.forEach((doc) => {
+        batch.delete(doc.ref);
+      });
+      return batch.commit().then(() => {
+        return snapshot.size;
+      });
+    }).then((numDeleted) => {
+      if (numDeleted === 0) {
+        resolve();
+        return;
+      }
+      process.nextTick(() => {
+        deleteBatch_(query, resolve, reject);
+      });
+    })
+    .catch(reject);
+}
+
+/**
+ * Deletes all saved reports for a given URL.
+ * @param {string} url URL to fetch reports for.
+ * @return {!Promise} The reports.
+ * @export
+ */
+export async function deleteReports(url) {
+  const batchSize = 20;
+  const collectionRef = db.collection(slugify(url));
+  const query = collectionRef.orderBy('__name__').limit(batchSize);
+
+  return new Promise((resolve, reject) => {
+    deleteBatch_(query, resolve, reject);
+  });
+}
+
+/**
+ *  Deletes url metadata.
+ * @param {string} url
+ * @return {!Promise}
+ */
+export async function deleteMetadata(url) {
+  return db.collection('meta').doc(slugify(url)).delete();
 }
 
 /**
