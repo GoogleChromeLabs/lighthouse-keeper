@@ -153,7 +153,7 @@ app.get('/lh/html', async (req, resp, next) => {
   }))[0];
 
   if (!latestRun) {
-    return resp.status(404).json({errors: `No results found for ${url}`});
+    return resp.status(404).json({errors: `No results found for "${url}"`});
   }
 
   if ('download' in req.query) {
