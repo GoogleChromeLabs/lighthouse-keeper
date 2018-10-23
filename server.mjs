@@ -181,7 +181,7 @@ app.get('/lh/reports', async (req, resp, next) => {
 
     return resp.status(200).json(reports);
   }
-  resp.status(404).json({errors: `No results found for ${url}`});
+  resp.status(404).json({errors: `No results found for "${url}"`});
 });
 
 app.use('/lh/medians', requireUrlQueryParam);
