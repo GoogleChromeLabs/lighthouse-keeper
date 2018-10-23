@@ -14,9 +14,12 @@
  * limitations under the License.
  */
 
+import fs from 'fs';
 import url from 'url';
 const URL = url.URL;
 import fetch from 'node-fetch';
+
+const LHR = JSON.parse(fs.readFileSync('./lhr.json', 'utf8'));
 
 /**
  * Wrapper for interactions with the Lighthouse API.
@@ -57,6 +60,11 @@ class LighthouseAPI {
     auditUrl.searchParams.set('key', this.apiKey);
     auditUrl.searchParams.set('locale', 'en_US');
     auditUrl.searchParams.set('strategy', 'mobile');
+    // Include all categories.
+    Object.keys(LHR.categories).forEach(cat => {
+      // Note: API uses best_practices instead of best-practices
+      auditUrl.searchParams.append('category', cat.replace('-', '_'));
+    });
     auditUrl.searchParams.set('url', url);
 
     const endpoint = auditUrl; // `${auditUrl}&url=${encodeURIComponent(url)}`;
