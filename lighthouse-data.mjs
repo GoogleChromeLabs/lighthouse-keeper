@@ -362,7 +362,7 @@ function deleteBatch_(query, resolve, reject) {
 /**
  * Deletes all saved reports for a given URL.
  * @param {string} url URL to fetch reports for.
- * @return {!Promise} The reports.
+ * @return {!Promise<undefined>}
  * @export
  */
 export async function deleteReports(url) {
