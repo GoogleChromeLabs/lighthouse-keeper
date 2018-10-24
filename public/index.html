@@ -4,25 +4,29 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="X-UA-Compatible" content="ie=edge">
-  <title>Lighthouse Profile Page Demo</title>
-  <link rel="stylesheet" href="app.min.css">
-  <script type="module" src="app.min.js"></script>
+  <title>Profile Page</title>
+  <link rel="stylesheet" href="//fonts.googleapis.com/css?family=Google+Sans:400,500|Roboto:400,400italic,500,500italic,700,700italic|Roboto+Mono:400,500,700|Material+Icons">
+  <link rel="stylesheet" href="base.css">
+  <link rel="stylesheet" href="components.css">
+  <!-- <link rel="stylesheet" href="profile.css"> -->
 </head>
-<body>
+<body class="profile-landing-page">
 
-<section id="enterurl">
-  <input id="url" type="url" value="https://developers.google.com/web/updates/" placeholder="Enter a full URL">
-  <span class="lh-running-msg">Auditing...</span>
-  <a id="viewreport" class="view-icon lh-icon" title="View latest Lighthouse report"></a>
-  <a id="downloadreport" class="download-icon lh-icon" download title="Download latest Lighthouse report"></a>
-  <button id="runlh" class="blue-button">Run Audit</button>
-</section>
-<web-progress></web-progress>
-<lh-scores-container></lh-scores-container>
-
-<table id="savedurls">
-  <!-- Filled dynamically. -->
-</table>
-
+<main>
+  <div>
+    <section class="results-section">
+      <div class="container">
+        <div class="row">
+          <div class="results-row">
+            <h2>Results</h2>
+            <web-lighthouse-scores url="https://developers.google.com/web/updates/"></web-lighthouse-scores>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</main>
+<script src="../node_modules/@webcomponents/webcomponentsjs/custom-elements-es5-adapter.js"></script>
+<script src="app.js"></script>
 </body>
 </html>
