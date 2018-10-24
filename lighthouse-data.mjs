@@ -162,7 +162,7 @@ export async function getUrlsLastViewedBefore(cutoffDate) {
       .where('lastViewed', '<', cutoffDate)
       .get()
       .then(snapshot => snapshot.forEach(doc => {
-        staleUrls.push(doc.id)
+        staleUrls.push(doc.id);
       }));
   return staleUrls;
 }
