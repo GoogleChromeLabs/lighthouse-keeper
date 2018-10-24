@@ -331,7 +331,7 @@ export async function getReports(url,
 
 /**
  * Deletes a subcollection in Firestore by batch.
- * @param {Object} query Firestore subcollection query.
+ * @param {!Object} query Firestore subcollection query.
  * @param {Function} resolve Function to call when all batches are deleted.
  * @param {Function} reject Function to call in case of error.
  */
