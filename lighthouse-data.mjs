@@ -151,7 +151,7 @@ export async function runLighthouse(url, replace=true) {
 
     json = await saveReport(url, lhr, replace);
   } catch (err) {
-    json.errors = `Error Lighthouse API: ${err}`;
+    json.errors = `Error Lighthouse CI: ${err}`;
   }
 
   return json;
@@ -199,7 +199,7 @@ export async function runLighthouseAPI(url, replace=true) {
     json = await saveReport(url, json, replace);
   } catch (err) {
     console.log(err);
-    json.errors = `Error Lighthouse API: ${err}`;
+    json.errors = `${err}`;
   }
 
   return json;
