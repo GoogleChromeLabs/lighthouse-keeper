@@ -105,6 +105,7 @@ app.get('/cron/delete_stale_lighthouse_reports', async (req, resp) => {
     return lighthouse.deleteReports(url).then(() => lighthouse.deleteMetadata(url));
   }));
 
+  // Seeds memcache with the list of saved urls and median scores.
   await lighthouse.getMedianScoresOfAllUrls();
   resp.status(200).send('Stale LH runs removed');
 });
