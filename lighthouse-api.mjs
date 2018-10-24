@@ -34,6 +34,7 @@ class LighthouseAPI {
    * @export
    */
   static get endpoints() {
+    //https://www-googleapis-staging.sandbox.google.com/
     const scope = 'https://www-googleapis-test.sandbox.google.com/pagespeedonline';
     return {
       scope,
@@ -63,7 +64,7 @@ class LighthouseAPI {
     // Include all categories.
     Object.keys(LHR.categories).forEach(cat => {
       // Note: API uses best_practices instead of best-practices
-      auditUrl.searchParams.append('category', cat.replace('-', '_'));
+      auditUrl.searchParams.append('category', cat.replace(/-/g, '_'));
     });
     auditUrl.searchParams.set('url', url);
 
