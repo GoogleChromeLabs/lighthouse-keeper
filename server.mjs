@@ -30,7 +30,7 @@ const LHR = JSON.parse(fs.readFileSync('./lhr.json', 'utf8'));
 /**
  * Number of days after which data is considered stale.
  * @type {number}
- * */
+ **/
 const STALE_DATA_TRESHOLD = 60;
 
 const app = express();
