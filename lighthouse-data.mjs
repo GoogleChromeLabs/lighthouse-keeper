@@ -163,7 +163,7 @@ export async function getUrlsLastViewedBefore(cutoffDate) {
       .where('lastViewed', '<', cutoffDate)
       .get()
       .then(snapshot => snapshot.forEach(doc => {
-        staleUrls.push(doc.id)
+        staleUrls.push(doc.id);
       }));
   return staleUrls;
 }
@@ -337,7 +337,7 @@ export async function getReports(url,
  */
 function deleteBatch_(query, resolve, reject) {
   query.get().then((snapshot) => {
-      if (snapshot.size == 0) {
+      if (snapshot.size === 0) {
         return 0;
       }
       const batch = db.batch();
@@ -363,7 +363,7 @@ function deleteBatch_(query, resolve, reject) {
 /**
  * Deletes all saved reports for a given URL.
  * @param {string} url URL to fetch reports for.
- * @return {!Promise} The reports.
+ * @return {!Promise<undefined>}
  * @export
  */
 export async function deleteReports(url) {
