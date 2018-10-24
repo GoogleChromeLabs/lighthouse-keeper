@@ -155,7 +155,7 @@ export async function runLighthouse(url, replace=true) {
  * @return {Array<string>}
  * @export
  */
-export async function getUrlsViewedBefore(cutoffDate) {
+export async function getUrlsLastViewedBefore(cutoffDate) {
   const metaCollection = db.collection('meta');
   const staleUrls = [];
   await metaCollection
@@ -328,6 +328,12 @@ export async function getReports(url,
   return runs;
 }
 
+/**
+ * Deletes a subcollection in Firestore by batch.
+ * @param {Object} query Firestore subcollection query.
+ * @param {Function} resolve Function to call when all batches are deleted.
+ * @param {Function} reject Function to call in case of error.
+ */
 function deleteBatch_(query, resolve, reject) {
   query.get().then((snapshot) => {
       if (snapshot.size == 0) {
@@ -337,14 +343,15 @@ function deleteBatch_(query, resolve, reject) {
       snapshot.docs.forEach((doc) => {
         batch.delete(doc.ref);
       });
-      return batch.commit().then(() => {
-        return snapshot.size;
-      });
+      return batch.commit().then(() => snapshot.size);
     }).then((numDeleted) => {
       if (numDeleted === 0) {
         resolve();
         return;
       }
+      // Recurse on the next process tick, to avoid
+      // exploding the stack.
+      // @see https://firebase.google.com/docs/firestore/manage-data/delete-data
       process.nextTick(() => {
         deleteBatch_(query, resolve, reject);
       });
@@ -372,6 +379,7 @@ export async function deleteReports(url) {
  *  Deletes url metadata.
  * @param {string} url
  * @return {!Promise}
+ * @export
  */
 export async function deleteMetadata(url) {
   return db.collection('meta').doc(slugify(url)).delete();

@@ -96,17 +96,17 @@ app.get('/cron/delete_stale_lighthouse_reports', async (req, resp) => {
   }
 
   const dateOffset = (24 * 60 * 60 * 1000) * STALE_DATA_TRESHOLD; // In ms
-  let cutoffDate = new Date();
+  const cutoffDate = new Date();
   cutoffDate.setTime(cutoffDate.getTime() - dateOffset);
 
-  const urls = await lighthouse.getUrlsViewedBefore(cutoffDate);
-  Promise.all(urls.map(url => {
-      return lighthouse.deleteReports(url).then(() => lighthouse.deleteMetadata(url));
-    }))
-    .then(async () => {
-      await lighthouse.getMedianScoresOfAllUrls();
-      resp.status(201).send('Stale LH runs removed');
-    });
+  const urls = await lighthouse.getUrlsLastViewedBefore(cutoffDate);
+
+  await Promise.all(urls.map(url => {
+    return lighthouse.deleteReports(url).then(() => lighthouse.deleteMetadata(url));
+  }));
+
+  await lighthouse.getMedianScoresOfAllUrls();
+  resp.status(200).send('Stale LH runs removed');
 });
 
 // Enable cors on rest of handlers.
