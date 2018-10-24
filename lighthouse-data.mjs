@@ -81,7 +81,7 @@ export async function saveReport(url, json, replace) {
     auditedOn: today,
   };
 
-  if (json.crux) {
+  if (Object.keys(json.crux).length) {
     data.crux = json.crux;
   }
 
@@ -114,47 +114,6 @@ export async function saveReport(url, json, replace) {
   ]);
 
   return data;
-}
-
-/**
- * Audits a site using Lighthouse.
- * @param {string} url Url to audit.
- * @param {boolean=} replace If true, replaces the last saved report with this
- *     new result. False, saves a new report. Defaults to true.
- * @return {!Object} Report object saved to Firestore.
- * @export
- */
-export async function runLighthouse(url, replace=true) {
-  let json = {};
-
-  try {
-    const endpoint = 'https://builder-dot-lighthouse-ci.appspot.com/ci';
-    const resp = await fetch(endpoint, {
-      method: 'POST',
-      body: JSON.stringify({url, format: 'json'}),
-      headers: {
-        'Content-Type': 'application/json',
-        'X-API-KEY': 'webdev',
-      }
-    });
-
-    if (!resp.ok) {
-      throw new Error(`(${resp.status}) ${resp.statusText}`);
-    }
-
-    const lhr = await resp.json();
-
-    // https://github.com/GoogleChrome/lighthouse/issues/6336
-    if (lhr.runtimeError && lhr.runtimeError.code !== 'NO_ERROR') {
-      throw new Error(`${lhr.runtimeError.code} ${lhr.runtimeError.message}`);
-    }
-
-    json = await saveReport(url, lhr, replace);
-  } catch (err) {
-    json.errors = `Error Lighthouse CI: ${err}`;
-  }
-
-  return json;
 }
 
 /**

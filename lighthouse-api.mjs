@@ -94,12 +94,14 @@ class LighthouseAPI {
       lhr = (typeof lhr === 'string') ? JSON.parse(lhr) : lhr;
       delete lhr.i18n; // Remove extra cruft.
 
-      let crux = null;
-      if (json.loadingExperience || json.originLoadingExperience) {
-        crux = {
-          loadingExperience: json.loadingExperience,
-          originLoadingExperience: json.originLoadingExperience,
-        };
+      const crux = {};
+      // Firestore cannot save object keys with values of undefined, so make
+      // sure to only include each crux key when the API has populated values.
+      if (json.loadingExperience) {
+        crux.loadingExperience = json.loadingExperience;
+      }
+      if (json.originLoadingExperience) {
+        crux.originLoadingExperience = json.originLoadingExperience;
       }
 
       return {lhr, crux};
