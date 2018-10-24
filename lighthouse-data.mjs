@@ -22,8 +22,7 @@ import Memcache from './memcache.mjs';
 import LighthouseAPI from './lighthouse-api.mjs';
 
 const SERVICE_ACCOUNT_FILE = './serviceAccount.json';
-const CI_URL = 'https://builder-dot-lighthouse-ci.appspot.com/ci';
-const CI_API_KEY = 'webdev';
+const serviceAccountJSON = JSON.parse(fs.readFileSync(SERVICE_ACCOUNT_FILE));
 
 const MAX_REPORTS = 10;
 
@@ -57,13 +56,15 @@ function median(numbers) {
 /**
  * Saves Lighthouse report to Firestore.
  * @param {string} url URL to save run under.
- * @param {!Object} lhr Lighthouse report object.
+ * @param {!Object} json
  * @param {boolean} replace If true, replaces the last saved report with this
  *     new result. False, saves a new report.
  * @return {!Promise<!Object>}
  * @export
  */
-export async function saveReport(url, lhr, replace) {
+export async function saveReport(url, json, replace) {
+  const lhr = json.lhr;
+
   delete lhr.i18n; // remove cruft we don't to store.
 
   // Trim down the LH results to only include category/scores.
@@ -79,6 +80,10 @@ export async function saveReport(url, lhr, replace) {
     lhrSlim,
     auditedOn: today,
   };
+
+  if (json.crux) {
+    data.crux = json.crux;
+  }
 
   const collectionRef = db.collection(slugify(url));
   const querySnapshot = await collectionRef
@@ -123,12 +128,13 @@ export async function runLighthouse(url, replace=true) {
   let json = {};
 
   try {
-    const resp = await fetch(CI_URL, {
+    const endpoint = 'https://builder-dot-lighthouse-ci.appspot.com/ci';
+    const resp = await fetch(endpoint, {
       method: 'POST',
       body: JSON.stringify({url, format: 'json'}),
       headers: {
         'Content-Type': 'application/json',
-        'X-API-KEY': CI_API_KEY,
+        'X-API-KEY': 'webdev',
       }
     });
 
@@ -172,12 +178,13 @@ export async function getUrlsLastViewedBefore(cutoffDate) {
 /**
  * Audits a site using the Lighthouse API.
  * @param {string} url Url to audit.
+ * @param {boolean=} replace If true, replaces the last saved report with this
+ *     new result. False, saves a new report. Defaults to true.
  * @return {!Object} API response.
  * @export
  */
-export async function runLighthouseAPI(url) {
-  const API_KEY = 'AIzaSyAwlPiPJIkTejgqqH01v9DmtPoPeOPXDUQ'; // PSI's key
-  const api = new LighthouseAPI(API_KEY);
+export async function runLighthouseAPI(url, replace=true) {
+  const api = new LighthouseAPI(serviceAccountJSON.PSI_API_KEY);
 
   let json = {};
   try {
@@ -189,6 +196,7 @@ export async function runLighthouseAPI(url) {
           `${json.lhr.runtimeError.code} ${json.lhr.runtimeError.message}`);
     }
 
+    json = await saveReport(url, json, replace);
   } catch (err) {
     console.log(err);
     json.errors = `Error Lighthouse API: ${err}`;
@@ -427,7 +435,7 @@ export function generateReport(lhr, format) {
 }
 
 const db = new Firestore({
-  projectId: JSON.parse(fs.readFileSync(SERVICE_ACCOUNT_FILE)).project_id,
+  projectId: serviceAccountJSON.project_id,
   keyFilename: SERVICE_ACCOUNT_FILE,
   timestampsInSnapshots: true,
 });

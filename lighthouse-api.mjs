@@ -34,8 +34,7 @@ class LighthouseAPI {
    * @export
    */
   static get endpoints() {
-    //https://www-googleapis-staging.sandbox.google.com/
-    const scope = 'https://www-googleapis-test.sandbox.google.com/pagespeedonline';
+    const scope = 'https://www-googleapis-staging.sandbox.google.com/pagespeedonline';
     return {
       scope,
       audit: `${scope}/${this.version}/runPagespeed`,
@@ -69,10 +68,8 @@ class LighthouseAPI {
     });
     auditUrl.searchParams.set('url', url);
 
-    const endpoint = auditUrl; // `${auditUrl}&url=${encodeURIComponent(url)}`;
-
     try {
-      const resp = await fetch(endpoint);
+      const resp = await fetch(auditUrl);
       if (!resp.ok) {
         throw Error(`${resp.status} from Lighthouse API: ${resp.statusText}`);
       }
