@@ -153,7 +153,7 @@ app.get('/lh/html', async (req, resp, next) => {
   }))[0];
 
   if (!latestRun) {
-    return resp.status(404).json({errors: `No results found for ${url}`});
+    return resp.status(404).json({errors: `No results found for "${url}".`});
   }
 
   if ('download' in req.query) {
@@ -181,7 +181,7 @@ app.get('/lh/reports', async (req, resp, next) => {
 
     return resp.status(200).json(reports);
   }
-  resp.status(404).json({errors: `No results found for ${url}`});
+  resp.status(404).json({errors: `No results found for "${url}".`});
 });
 
 app.use('/lh/medians', requireUrlQueryParam);
@@ -209,7 +209,8 @@ app.post('/lh/newaudit', async (req, resp, next) => {
 
   // Replace results when user is running new audit. Cron adds new entry.
   const replace = !req.get('X-AppEngine-QueueName');
-  const json = await lighthouse.runLighthouse(url, replace);
+  // const json = await lighthouse.runLighthouse(url, replace);
+  const json = await lighthouse.runLighthouseAPI(url, replace)
   if (json.errors) {
     return resp.status(400).json(json);
   }
