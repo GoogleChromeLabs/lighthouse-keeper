@@ -153,7 +153,7 @@ export async function runLighthouse(url, replace=true) {
 /**
  * Returns urls with lastViewed date older than cutoff date.
  * @param {Date} cutoffDate Date before which urls are considered stale.
- * @return {Array<string>}
+ * @return {!Array<string>}
  * @export
  */
 export async function getUrlsLastViewedBefore(cutoffDate) {
