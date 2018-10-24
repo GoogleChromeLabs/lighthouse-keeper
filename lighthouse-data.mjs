@@ -336,7 +336,7 @@ export async function getReports(url,
  */
 function deleteBatch_(query, resolve, reject) {
   query.get().then((snapshot) => {
-      if (snapshot.size == 0) {
+      if (snapshot.size === 0) {
         return 0;
       }
       const batch = db.batch();
