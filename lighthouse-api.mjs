@@ -63,7 +63,8 @@ class LighthouseAPI {
     auditUrl.searchParams.set('strategy', 'mobile');
     // Include all categories.
     Object.keys(LHR.categories).forEach(cat => {
-      // Note: API uses best_practices instead of best-practices
+      // Note: API uses "best_practices" instead of "best-practices".
+      // This is going away soon.
       auditUrl.searchParams.append('category', cat.replace(/-/g, '_'));
     });
     auditUrl.searchParams.set('url', url);
