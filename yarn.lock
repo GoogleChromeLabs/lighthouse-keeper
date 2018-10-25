@@ -167,9 +167,9 @@
   integrity sha512-ojnbBiKkZFYRfQpmtnnWTMw+rzGp/JiystjluW9jgN3VzRwilXddJ6aGQ9V/7iuDG06SBgn7ozW9k3zcAnYjYQ==
 
 "@types/node@^9.3.0":
-  version "9.6.32"
-  resolved "https://registry.yarnpkg.com/@types/node/-/node-9.6.32.tgz#1b64134f630b30c9cda4810aa4a94fc2d4141dbd"
-  integrity sha512-5+L3wQ+FHoQ589EaH6rYICleuj8gnunq+1CJkM9fxklirErIOv+kxm3s/vecYnpJOYnFowE5uUizcb3hgjHUug==
+  version "9.6.35"
+  resolved "https://registry.yarnpkg.com/@types/node/-/node-9.6.35.tgz#197dd535c094362a7c95f0b78f07583d6681ed26"
+  integrity sha512-h5zvHS8wXHGa+Gcqs9K8vqCgOtqjr0+NqG/DDJmQIX1wpR9HivAfgV8bjcD3mGM4bPfQw5Aneb2Pn8355L83jA==
 
 "@types/node@^9.4.6":
   version "9.6.34"
@@ -610,16 +610,6 @@ chownr@^1.0.1:
   resolved "https://registry.yarnpkg.com/chownr/-/chownr-1.1.1.tgz#54726b8b8fff4df053c42187e801fb4412df1494"
   integrity sha512-j38EvO5+LHX84jlo6h4UzmOwi0UgW61WRyPtJz4qaadK5eY3BTS5TY/S1Stc3Uk2lIM6TPevAlULiEJwie860g==
 
-chrome-devtools-frontend@1.0.401423:
-  version "1.0.401423"
-  resolved "https://registry.yarnpkg.com/chrome-devtools-frontend/-/chrome-devtools-frontend-1.0.401423.tgz#32a89b8d04e378a494be3c8d63271703be1c04ea"
-  integrity sha1-MqibjQTjeKSUvjyNYycXA74cBOo=
-
-chrome-devtools-frontend@1.0.593291:
-  version "1.0.593291"
-  resolved "https://registry.yarnpkg.com/chrome-devtools-frontend/-/chrome-devtools-frontend-1.0.593291.tgz#72ed2e488e4ab8c5df9f35a5ce6bb128eb3c5e74"
-  integrity sha512-rZYanFVohRHjYdFdbvmna/9yzA+PMYfjBqXaLfF6SxE9ZnmfuMhItHGqPXrUTvuv1IuqaD1FX51WmTFwa2zfUA==
-
 chrome-launcher@^0.10.5:
   version "0.10.5"
   resolved "https://registry.yarnpkg.com/chrome-launcher/-/chrome-launcher-0.10.5.tgz#d0aa72c11f1653e6a60dfebea171522447470ef1"
@@ -945,14 +935,6 @@ detect-libc@^1.0.2:
   version "1.0.3"
   resolved "https://registry.yarnpkg.com/detect-libc/-/detect-libc-1.0.3.tgz#fa137c4bd698edf55cd5cd02ac559f91a4c4ba9b"
   integrity sha1-+hN8S9aY7fVc1c0CrFWfkaTEups=
-
-devtools-timeline-model@1.1.6:
-  version "1.1.6"
-  resolved "https://registry.yarnpkg.com/devtools-timeline-model/-/devtools-timeline-model-1.1.6.tgz#7be51a73b55d727b597bb30dd1ed2e8e210639a5"
-  integrity sha1-e+Uac7VdcntZe7MN0e0ujiEGOaU=
-  dependencies:
-    chrome-devtools-frontend "1.0.401423"
-    resolve "1.1.7"
 
 diff-match-patch@^1.0.0:
   version "1.0.4"
@@ -2126,24 +2108,21 @@ lcid@^1.0.0:
     invert-kv "^1.0.0"
 
 lighthouse-logger@^1.0.0:
-  version "1.1.0"
-  resolved "https://registry.yarnpkg.com/lighthouse-logger/-/lighthouse-logger-1.1.0.tgz#1a355ce5d477f39b184ece1926a5f3627abd833d"
-  integrity sha512-l5/HppTtadQ9jyz6CoFPzEr/0zsr6tKL8e4wDBSlKDeaH5PZtI/Z/9YflLrds+uOhC3rk7xWCjIXqqhAjaQ+oA==
+  version "1.2.0"
+  resolved "https://registry.yarnpkg.com/lighthouse-logger/-/lighthouse-logger-1.2.0.tgz#b76d56935e9c137e86a04741f6bb9b2776e886ca"
+  integrity sha512-wzUvdIeJZhRsG6gpZfmSCfysaxNEr43i+QT+Hie94wvHDKFLi4n7C2GqZ4sTC+PH5b5iktmXJvU87rWvhP3lHw==
   dependencies:
     debug "^2.6.8"
     marky "^1.2.0"
 
-lighthouse@^3.2.1:
-  version "3.2.1"
-  resolved "https://registry.yarnpkg.com/lighthouse/-/lighthouse-3.2.1.tgz#90681c9eb8b5dea41a2569e3d4bafdbd4292c97f"
-  integrity sha512-zoL0wc9gj8TJhhY1oHwO62E4bAj3LL+5YPCEgCU+sepextiynt11mXDjQcBXpTeDI195zIuk3CjEnppbq/kW5Q==
+lighthouse@GoogleChrome/lighthouse#master:
+  version "3.2.0"
+  resolved "https://codeload.github.com/GoogleChrome/lighthouse/tar.gz/d1c9bb8cdc11f7c7a87e02e3bd19456b5ddb5022"
   dependencies:
     axe-core "3.0.0-beta.2"
-    chrome-devtools-frontend "1.0.593291"
     chrome-launcher "^0.10.5"
     configstore "^3.1.1"
     cssstyle "1.1.1"
-    devtools-timeline-model "1.1.6"
     esprima "^4.0.1"
     http-link-header "^0.8.0"
     inquirer "^3.3.0"
@@ -3164,11 +3143,6 @@ resolve-url@^0.2.1:
   resolved "https://registry.yarnpkg.com/resolve-url/-/resolve-url-0.2.1.tgz#2c637fe77c893afd2a663fe21aa9080068e2052a"
   integrity sha1-LGN/53yJOv0qZj/iGqkIAGjiBSo=
 
-resolve@1.1.7:
-  version "1.1.7"
-  resolved "https://registry.yarnpkg.com/resolve/-/resolve-1.1.7.tgz#203114d82ad2c5ed9e8e0411b3932875e889e97b"
-  integrity sha1-IDEU2CrSxe2ejgQRs5ModeiJ6Xs=
-
 restore-cursor@^2.0.0:
   version "2.0.0"
   resolved "https://registry.yarnpkg.com/restore-cursor/-/restore-cursor-2.0.0.tgz#9f7ee287f82fd326d4fd162923d62129eee0dfaf"
@@ -3295,10 +3269,15 @@ semver-diff@^2.0.0:
   dependencies:
     semver "^5.0.3"
 
-"semver@2 || 3 || 4 || 5", semver@^5.0.3, semver@^5.1.0, semver@^5.3.0, semver@^5.5.0, semver@^5.5.1:
+"semver@2 || 3 || 4 || 5", semver@^5.3.0, semver@^5.5.0, semver@^5.5.1:
   version "5.5.1"
   resolved "https://registry.yarnpkg.com/semver/-/semver-5.5.1.tgz#7dfdd8814bdb7cabc7be0fb1d734cfb66c940477"
   integrity sha512-PqpAxfrEhlSUWge8dwIp4tZnQ25DIOthpiaHNIthsjEFQD6EvqUKUDM7L8O2rShkFccYo1VjJR0coWfNkCubRw==
+
+semver@^5.0.3, semver@^5.1.0:
+  version "5.6.0"
+  resolved "https://registry.yarnpkg.com/semver/-/semver-5.6.0.tgz#7e74256fbaa49c75aa7c7a205cc22799cac80004"
+  integrity sha512-RS9R6R35NYgQn++fkDWaOmqGoj4Ek9gGs+DPxNUZKuwE183xjJroKvyo1IzVFeXvUrvmALy6FWD5xrdJT25gMg==
 
 semver@~5.3.0:
   version "5.3.0"
@@ -3920,9 +3899,9 @@ wide-align@^1.1.0:
     string-width "^1.0.2 || 2"
 
 widest-line@^2.0.0:
-  version "2.0.0"
-  resolved "https://registry.yarnpkg.com/widest-line/-/widest-line-2.0.0.tgz#0142a4e8a243f8882c0233aa0e0281aa76152273"
-  integrity sha1-AUKk6KJD+IgsAjOqDgKBqnYVInM=
+  version "2.0.1"
+  resolved "https://registry.yarnpkg.com/widest-line/-/widest-line-2.0.1.tgz#7438764730ec7ef4381ce4df82fb98a53142a3fc"
+  integrity sha512-Ba5m9/Fa4Xt9eb2ELXt77JxVDV8w7qQrH0zS/TWSJdLyAwQjWoOzpzj5lwVftDz6n/EOu3tNACS84v509qwnJA==
   dependencies:
     string-width "^2.1.1"
 
