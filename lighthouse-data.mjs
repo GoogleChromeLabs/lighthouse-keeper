@@ -15,13 +15,14 @@
  */
 
 import fs from 'fs';
-import fetch from 'node-fetch';
 import Firestore from '@google-cloud/firestore';
+import Storage from '@google-cloud/storage';
 import ReportGenerator from 'lighthouse/lighthouse-core/report/report-generator.js';
 import Memcache from './memcache.mjs';
 import LighthouseAPI from './lighthouse-api.mjs';
 
 const SERVICE_ACCOUNT_FILE = './serviceAccount.json';
+const STORAGE_BUCKET = 'webdotdevsite.appspot.com';
 const serviceAccountJSON = JSON.parse(fs.readFileSync(SERVICE_ACCOUNT_FILE));
 
 const MAX_REPORTS = 10;
@@ -54,6 +55,34 @@ function median(numbers) {
 }
 
 /**
+ * Uploads the LH report to Firebase cloud storage.
+ * @param {string} lhr URL of the PDF to upload to cloud storage.
+ * @param {string} name Report name.
+ * @return {Promise<undefined>}
+ */
+async function uploadReport(lhr, name) {
+  const bucket = storage.bucket(STORAGE_BUCKET);
+  const filename = `lhrs/${name}.json`;
+  return await bucket.file(filename).save(JSON.stringify(lhr), {
+    gzip: true,
+    resumable: false
+  });
+}
+
+/**
+ * Dwonloads the full LH report from Firebase cloud storage.
+ * @param {string} url Target url for the report.
+ * @return {Object} Json with lhr data.
+ * @export
+ */
+export async function getFullReport(url) {
+  const bucket = storage.bucket(STORAGE_BUCKET);
+  const filename = `lhrs/${slugify(url)}.json`;
+  const data = await bucket.file(filename).download();
+  return JSON.parse(data);
+}
+
+/**
  * Saves Lighthouse report to Firestore.
  * @param {string} url URL to save run under.
  * @param {!Object} json
@@ -76,7 +105,6 @@ export async function saveReport(url, json, replace) {
 
   const today = new Date();
   const data = {
-    lhr,
     lhrSlim,
     auditedOn: today,
   };
@@ -96,14 +124,12 @@ export async function saveReport(url, json, replace) {
     await memcache.delete('getAllSavedUrls');
   }
 
+  lhr.auditedOn = today;
+  await uploadReport(lhr, slugify(url));
   if (replace && lastDoc) {
     await lastDoc.ref.update(data); // Replace last entry with updated vals.
   } else {
     await collectionRef.add(data); // Add new report.
-    if (lastDoc) {
-      // Delete the full LH report from the last entry to save space over time.
-      await lastDoc.ref.update({lhr: Firestore.FieldValue.delete()});
-    }
   }
 
   await updateLastViewed(url);
@@ -311,10 +337,14 @@ export async function getReports(url,
     await updateLastViewed(url); // "touch" url's last viewed date.
   }
 
+  const lhr = await getFullReport(url);
   runs = runs.map(r => {
     const ts = new Firestore.Timestamp(
         r.auditedOn._seconds, r.auditedOn._nanoseconds);
     r.auditedOn = ts.toDate();
+    if (r.auditedOn.toISOString() === lhr.auditedOn) {
+      r.lhr = lhr;
+    }
     return r;
   });
 
@@ -400,3 +430,8 @@ const db = new Firestore({
 });
 
 const memcache = new Memcache();
+
+const storage = new Storage.Storage({
+  projectId: serviceAccountJSON.project_id,
+  keyFilename: SERVICE_ACCOUNT_FILE
+});
