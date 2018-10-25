@@ -1,12 +1,17 @@
-# web.dev data server
+# Lighthouse keeper
 
-Server that handles the web.dev profile page bits:
+> Lighthouse keeper is a backend for providing historical [Lighthouse](https://developers.google.com/web/tools/lighthouse/) results for an URL. It's used to power the Lighthouse integration on web.dev.
 
-- Runs Lighthouse against a URL and stores reports over time.
-- Cron job that schedules tasks to update scores for each URL.
-- A demo page and set of example web components that interact with the backend in `public/`.
+There are several bits:
 
-<img width="1081" alt="screen shot 2018-10-11 at 9 09 35 am" src="https://user-images.githubusercontent.com/238208/46818166-679b6c80-cd35-11e8-8989-d5b1f50abd99.png">
+- Runs the Lighthouse API against a URL and stores reports over time (Firestore). Provides querying capabilities.
+- The latest (full) report for the URL is stored (Google Cloud Storage).
+- The server itself is Google App Engine (NodeJS). Cron jobs schedule tasks to update scores for each URL in the system.
+
+There's page demo page (`/public/index.html`) that shows how this package can be used to render results.
+Note: if you're testing, `CI_HOST` needs to be switched over to `http:localhost:8080` in the `app.js`.
+
+<img width="1081" alt="web.dev frontend rendering data from this server" src="https://user-images.githubusercontent.com/238208/47517054-e2877b80-d83b-11e8-97d1-b2becc282604.png">
 
 ## Development
 
@@ -66,12 +71,21 @@ Lists the Lighthouse audits:
 GET /lh/audits
 ```
 
-### Lighthouse data handlers:
-
-Lists the latest `MAX_REPORTS` reports for the URL.
+Lists the median scores (for each Lighthouse category) of all the URLs in the system,
+or just for a particular URL.
 
 ```
-GET /lh/reports
+GET /lh/medians[?url=https://example.com/]
+```
+
+### Lighthouse data handlers:
+
+Lists the latest `MAX_REPORTS` reports for the URL. If the `?since=YYYY-MM-DD` query
+parameter is ued, the results will be filtered to on or after that date.
+
+```
+GET /lh/reports?url=https://example.com/
+GET /lh/reports?url=https://example.com/&since=2018-10-25
 ```
 
 Lists the URLs that have been saved in the system.
@@ -84,7 +98,7 @@ Displays the latest Lighthouse HTML report for `url`. If the `download` param
 is included, the file is downloaded.
 
 ```
-GET /lh/html?url="https://example.com"
+GET /lh/html?url=https://example.com
 GET /lh/html?url=https://example.com&download
 ```
 
@@ -113,4 +127,12 @@ Engine backend.
 
 ```
 GET /cron/update_lighthouse_scores
+```
+
+Used by the cron job (see `cron.yaml`) to delete existing results if the URL hasn't been 
+viewed/audited or otherwise "touched" in the last 60 days. **Note**: this handler is only accessible to the App
+Engine backend.
+
+```
+GET /cron/delete_stale_lighthouse_reports
 ```
