@@ -1,4 +1,4 @@
-# Lighthouse keeper
+# Lighthouse Keeper
 
 > Lighthouse keeper is a backend for providing historical [Lighthouse](https://developers.google.com/web/tools/lighthouse/) results for an URL. It's used to power the Lighthouse integration on web.dev.
 
@@ -71,13 +71,6 @@ Lists the Lighthouse audits:
 GET /lh/audits
 ```
 
-Lists the median scores (for each Lighthouse category) of all the URLs in the system,
-or just for a particular URL.
-
-```
-GET /lh/medians[?url=https://example.com/]
-```
-
 ### Lighthouse data handlers:
 
 Lists the latest `MAX_REPORTS` reports for the URL. If the `?since=YYYY-MM-DD` query
@@ -109,6 +102,13 @@ POST /lh/newaudit
 Content-Type: application/json
 
 {"url": "https://example.com"}
+```
+
+Lists the median scores (for each Lighthouse category) of all the URLs in the system,
+or just for a particular URL.
+
+```
+GET /lh/medians[?url=https://example.com/]
 ```
 
 ### Private handlers
