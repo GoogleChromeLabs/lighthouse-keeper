@@ -58,7 +58,7 @@ function median(numbers) {
  * Uploads the LH report to Firebase cloud storage.
  * @param {!Object} lhr Full lhr object
  * @param {string} name Report name.
- * @return {Promise<undefined>}
+ * @return {!Promise<undefined>}
  */
 async function uploadReport(lhr, name) {
   const bucket = storage.bucket(STORAGE_BUCKET);
