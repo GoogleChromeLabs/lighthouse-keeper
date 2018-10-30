@@ -432,7 +432,7 @@ const db = new Firestore({
 
 const memcache = new Memcache();
 
-const storage = new Storage.Storage({
+const storage = new Storage({
   projectId: serviceAccountJSON.project_id,
   keyFilename: SERVICE_ACCOUNT_FILE,
 });
