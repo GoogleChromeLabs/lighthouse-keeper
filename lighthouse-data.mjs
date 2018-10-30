@@ -71,7 +71,7 @@ async function uploadReport(lhr, name) {
 }
 
 /**
- * Dwonloads the full LH report from Firebase cloud storage.
+ * Downloads the full LH report from Firebase cloud storage.
  * @param {string} url Target url for the report.
  * @return {Object} Json with lhr data.
  * @export
