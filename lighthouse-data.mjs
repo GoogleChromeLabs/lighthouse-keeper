@@ -59,6 +59,7 @@ function median(numbers) {
  * @param {!Object} lhr Full lhr object
  * @param {string} name Report name.
  * @return {!Promise<undefined>}
+ * @export
  */
 async function uploadReport(lhr, name) {
   const bucket = storage.bucket(STORAGE_BUCKET);
