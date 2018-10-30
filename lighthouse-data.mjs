@@ -56,7 +56,7 @@ function median(numbers) {
 
 /**
  * Uploads the LH report to Firebase cloud storage.
- * @param {string} lhr URL of the PDF to upload to cloud storage.
+ * @param {!Object} lhr Full lhr object
  * @param {string} name Report name.
  * @return {Promise<undefined>}
  */
