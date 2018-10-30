@@ -434,5 +434,5 @@ const memcache = new Memcache();
 
 const storage = new Storage.Storage({
   projectId: serviceAccountJSON.project_id,
-  keyFilename: SERVICE_ACCOUNT_FILE
+  keyFilename: SERVICE_ACCOUNT_FILE,
 });
