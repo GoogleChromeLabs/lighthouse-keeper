@@ -147,16 +147,12 @@ app.get('/lh/urls', async (req, resp) => {
 app.use('/lh/html', requireUrlQueryParam);
 app.get('/lh/html', async (req, resp, next) => {
   const url = req.query.url;
-  const latestRun = (await lighthouse.getReports(url, {
-    useCache: false,
-    maxResults: 1,
-  }))[0];
 
-  if (!latestRun) {
+  const lhr = await lighthouse.getFullReport(url);
+  if (!lhr) {
     return resp.status(404).json({errors: `No results found for "${url}".`});
   }
 
-  const lhr = await lighthouse.getFullReport(url);
   if ('download' in req.query) {
     const filename = `${fileNamer.getFilenamePrefix(lhr)}.html`;
     resp.set('Content-Disposition', `attachment; filename=${filename}`);

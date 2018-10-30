@@ -16,7 +16,8 @@
 
 import fs from 'fs';
 import Firestore from '@google-cloud/firestore';
-import {Storage} from '@google-cloud/storage';
+import gcs from '@google-cloud/storage';
+const CloudStorage = gcs.Storage;
 import ReportGenerator from 'lighthouse/lighthouse-core/report/report-generator.js';
 import Memcache from './memcache.mjs';
 import LighthouseAPI from './lighthouse-api.mjs';
@@ -73,14 +74,20 @@ async function uploadReport(lhr, name) {
 /**
  * Downloads the full LH report from Firebase cloud storage.
  * @param {string} url Target url for the report.
- * @return {!Promise<!Object>} Resolves with LHR json.
+ * @return {?Promise<!Object>} Resolves with LHR json.
  * @export
  */
 export async function getFullReport(url) {
   const bucket = storage.bucket(STORAGE_BUCKET);
   const filename = `lhrs/${slugify(url)}.json`;
-  const data = await bucket.file(filename).download();
-  return JSON.parse(data);
+  const file = bucket.file(filename);
+  const fileExists = (await file.exists())[0];
+  if (fileExists) {
+    const data = await file.download();
+    const lhr = JSON.parse(data);
+    return lhr;
+  }
+  return null;
 }
 
 /**
@@ -125,7 +132,6 @@ export async function saveReport(url, json, replace) {
     await memcache.delete('getAllSavedUrls');
   }
 
-  lhr.auditedOn = today;
   await uploadReport(lhr, slugify(url));
   if (replace && lastDoc) {
     await lastDoc.ref.update(data); // Replace last entry with updated vals.
@@ -338,16 +344,15 @@ export async function getReports(url,
     await updateLastViewed(url); // "touch" url's last viewed date.
   }
 
-  const lhr = await getFullReport(url);
   runs = runs.map(r => {
     const ts = new Firestore.Timestamp(
         r.auditedOn._seconds, r.auditedOn._nanoseconds);
     r.auditedOn = ts.toDate();
-    if (r.auditedOn.toISOString() === lhr.auditedOn) {
-      r.lhr = lhr;
-    }
     return r;
   });
+
+  // Attach full lighthouse report to last entry.
+  runs[runs.length - 1].lhr = await getFullReport(url);
 
   if (useCache) {
     await memcache.set(cacheKey, runs);
@@ -432,7 +437,7 @@ const db = new Firestore({
 
 const memcache = new Memcache();
 
-const storage = new Storage({
+const storage = new CloudStorage({
   projectId: serviceAccountJSON.project_id,
   keyFilename: SERVICE_ACCOUNT_FILE,
 });
