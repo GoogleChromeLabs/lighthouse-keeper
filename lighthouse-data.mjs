@@ -16,7 +16,7 @@
 
 import fs from 'fs';
 import Firestore from '@google-cloud/firestore';
-import Storage from '@google-cloud/storage';
+import {Storage} from '@google-cloud/storage';
 import ReportGenerator from 'lighthouse/lighthouse-core/report/report-generator.js';
 import Memcache from './memcache.mjs';
 import LighthouseAPI from './lighthouse-api.mjs';
