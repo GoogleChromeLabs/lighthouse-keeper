@@ -66,7 +66,7 @@ async function uploadReport(lhr, name) {
   const filename = `lhrs/${name}.json`;
   return await bucket.file(filename).save(JSON.stringify(lhr), {
     gzip: true,
-    resumable: false
+    resumable: false,
   });
 }
 
