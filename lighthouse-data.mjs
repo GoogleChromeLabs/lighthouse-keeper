@@ -403,6 +403,7 @@ export async function deleteReports(url) {
   const collectionRef = db.collection(slugify(url));
   const query = collectionRef.orderBy('__name__').limit(batchSize);
 
+  // TODO: Clear caches?
   return new Promise((resolve, reject) => {
     deleteBatch_(query, resolve, reject);
   });

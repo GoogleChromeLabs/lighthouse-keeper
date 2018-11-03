@@ -189,7 +189,12 @@ app.get('/lh/medians', async (req, resp, next) => {
   resp.status(200).json(medians);
 });
 
-app.post('/lh/newaudit', async (req, resp, next) => {
+/**
+ * A helper for returning a url param in the body or the query of the request.
+ * @param {!Object} req Request object
+ * @return {String|Object} url
+ */
+function findUrlInRequest(req) {
   let url = req.body.url || req.query.url;
   if (!url) {
     try {
@@ -198,8 +203,12 @@ app.post('/lh/newaudit', async (req, resp, next) => {
       // noop
     }
   }
+  return url;
+}
 
-  // Still no URL found, bomb out.
+app.post('/lh/newaudit', async (req, resp, next) => {
+  let url = findUrlInRequest(req);
+  // No URL found, bomb out.
   if (!url) {
     return resp.status(400).send('No url provided.');
   }
@@ -212,6 +221,18 @@ app.post('/lh/newaudit', async (req, resp, next) => {
     return resp.status(400).json(json);
   }
   resp.status(201).json(json);
+});
+
+app.post('/lh/remove', async (req, resp, next) => {
+  let url = findUrlInRequest(req);
+  // Still no URL found, bomb out.
+  if (!url) {
+    return resp.status(400).send('No url provided.');
+  }
+  await lighthouse.deleteReports(url);
+  await lighthouse.deleteMetadata(url);
+  await lighthouse.getMedianScoresOfAllUrls();
+  resp.status(200).send(`Reports for ${url} removed`);
 });
 
 app.use(function errorHandler(err, req, res, next) {
