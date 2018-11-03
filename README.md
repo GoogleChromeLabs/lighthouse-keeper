@@ -74,7 +74,7 @@ GET /lh/audits
 ### Lighthouse data handlers:
 
 Lists the latest `MAX_REPORTS` reports for the URL. If the `?since=YYYY-MM-DD` query
-parameter is ued, the results will be filtered to on or after that date.
+parameter is used, the results will be filtered to on or after that date.
 
 ```
 GET /lh/reports?url=https://example.com/
