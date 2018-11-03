@@ -320,7 +320,7 @@ export async function getMedianScoresOfAllUrls(
  * @param {{maxResults: number=, useCache: boolean=}}
  *     Config object.
  * @param {boolean=} useCache If false, bypasses cache. Defaults to true.
- * @return {!Array<Object>|null} The reports.
+ * @return {!Array<Object>} The reports.
  * @export
  */
 export async function getReports(url,
