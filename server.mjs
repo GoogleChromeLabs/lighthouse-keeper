@@ -26,32 +26,61 @@ import fileNamer from 'lighthouse/lighthouse-core/lib/file-namer.js';
 
 const PORT = process.env.PORT || 8080;
 const LHR = JSON.parse(fs.readFileSync('./lhr.json', 'utf8'));
-
-/**
- * Number of days after which data is considered stale.
- * @type {number}
- **/
-const STALE_DATA_TRESHOLD = 60;
+const serviceAccountJSON = JSON.parse(fs.readFileSync('./serviceAccount.json'));
+const STALE_DATA_TRESHOLD = 60; // Num days after data is considered stale.
 
 const app = express();
 
-function requireUrlQueryParam(req, resp, next) {
-  const url = req.query.url;
-  if (!url) {
-    return resp.status(400).send('No url provided.');
+/**
+ * Middleware to require admin access.
+ * @param {!Object} req
+ * @param {!Object} resp
+ * @param {!Function} next
+ */
+function requireAdminUser(req, resp, next) {
+  const key = req.get('X-SECRET-KEY');
+  if (key !== serviceAccountJSON.ADMIN_SECRET_KEY) {
+    return resp.status(403).send(
+      'Sorry, handler can only be run by admin user.');
   }
   next();
 }
 
-app.use(function forceSSL(req, res, next) {
-  const fromCron = req.get('X-Appengine-Cron');
-  const fromTaskQueue = req.get('X-AppEngine-QueueName');
-  if (!(fromCron || fromTaskQueue) && req.hostname !== 'localhost' &&
-      req.get('X-Forwarded-Proto') === 'http') {
-    return res.redirect(`https://${req.hostname}${req.url}`);
+/**
+ * Middleware to grab the URL from request.
+ * @param {!Object} req
+ * @param {!Object} resp
+ * @param {!Function} next
+ */
+function requireUrlQueryParam(req, resp, next) {
+  let url = req.body.url || req.query.url;
+  if (!url) {
+    try {
+      url = JSON.parse(req.body.toString('utf8'));
+    } catch (err) {
+      // noop
+    }
   }
+
+  if (!url) {
+    resp.status(400).send('No url provided.');
+    return;
+  }
+
+  resp.locals.url = url;
+
   next();
-});
+}
+
+// app.use(function forceSSL(req, resp, next) {
+//   const fromCron = req.get('X-Appengine-Cron');
+//   const fromTaskQueue = req.get('X-AppEngine-QueueName');
+//   if (!(fromCron || fromTaskQueue) && req.hostname !== 'localhost' &&
+//       req.get('X-Forwarded-Proto') === 'http') {
+//     return resp.redirect(`https://${req.hostname}${req.url}`);
+//   }
+//   next();
+// });
 
 app.use(bodyParser.raw());
 app.use(bodyParser.json());
@@ -111,10 +140,10 @@ app.get('/cron/delete_stale_lighthouse_reports', async (req, resp) => {
 });
 
 // Enable cors on rest of handlers.
-app.use(function enableCors(req, res, next) {
-  res.set('Access-Control-Allow-Origin', '*');
-  res.set('Access-Control-Allow-Headers', 'Content-Type');
-  res.set('Access-Control-Allow-Methods', 'POST, GET');
+app.use(function enableCors(req, resp, next) {
+  resp.set('Access-Control-Allow-Origin', '*');
+  resp.set('Access-Control-Allow-Headers', 'Content-Type');
+  resp.set('Access-Control-Allow-Methods', 'POST, GET');
   next();
 });
 
@@ -146,7 +175,7 @@ app.get('/lh/urls', async (req, resp) => {
 
 app.use('/lh/html', requireUrlQueryParam);
 app.get('/lh/html', async (req, resp, next) => {
-  const url = req.query.url;
+  const url = resp.locals.url;
 
   const lhr = await lighthouse.getFullReport(url);
   if (!lhr) {
@@ -164,55 +193,41 @@ app.get('/lh/html', async (req, resp, next) => {
 
 app.use('/lh/reports', requireUrlQueryParam);
 app.get('/lh/reports', async (req, resp, next) => {
-  const url = req.query.url;
+  const url = resp.locals.url;
   const sinceDate = req.query.since;
 
-  let reports = await lighthouse.getReports(url);
-  if (reports.length) {
+  let reports = [];
+  if (!sinceDate) {
+    // If no start date provided, only return last item.
+    reports = await lighthouse.getReports(url, {maxResults: 1});
+    reports = reports.slice(0, 1);
+  } else {
+    reports = await lighthouse.getReports(url);
     // Filter results from before start date.
-    if (sinceDate) {
-      reports = reports.filter(report => {
-        return new Date(report.auditedOn) >= new Date(sinceDate);
-      });
-    }
-
-    return resp.status(200).json(reports);
+    reports = reports.filter(report => {
+      return new Date(report.auditedOn) >= new Date(sinceDate);
+    });
   }
-  resp.status(404).json({errors: `No results found for "${url}".`});
+
+  if (!reports.length) {
+    resp.status(404).json({errors: `No results found for "${url}".`});
+    return;
+  }
+
+  return resp.status(200).json(reports);
 });
 
 app.use('/lh/medians', requireUrlQueryParam);
 app.get('/lh/medians', async (req, resp, next) => {
-  const url = req.query.url;
+  const url = resp.locals.url;
   const medians = url === 'all' ? await lighthouse.getMedianScoresOfAllUrls() :
       await lighthouse.getMedianScores(url);
   resp.status(200).json(medians);
 });
 
-/**
- * A helper for returning a url param in the body or the query of the request.
- * @param {!Object} req Request object
- * @return {String|Object} url
- */
-function findUrlInRequest(req) {
-  let url = req.body.url || req.query.url;
-  if (!url) {
-    try {
-      url = JSON.parse(req.body.toString('utf8'));
-    } catch (err) {
-      // noop
-    }
-  }
-  return url;
-}
-
+app.use('/lh/newaudit', requireUrlQueryParam);
 app.post('/lh/newaudit', async (req, resp, next) => {
-  let url = findUrlInRequest(req);
-  // No URL found, bomb out.
-  if (!url) {
-    return resp.status(400).send('No url provided.');
-  }
-
+  const url = resp.locals.url;
   // Replace results when user is running new audit. Cron adds new entry.
   const replace = !req.get('X-AppEngine-QueueName');
   // const json = await lighthouse.runLighthouse(url, replace);
@@ -223,24 +238,23 @@ app.post('/lh/newaudit', async (req, resp, next) => {
   resp.status(201).json(json);
 });
 
+app.use('/lh/remove', requireUrlQueryParam);
+app.use('/lh/remove', requireAdminUser);
 app.post('/lh/remove', async (req, resp, next) => {
-  let url = findUrlInRequest(req);
-  // Still no URL found, bomb out.
-  if (!url) {
-    return resp.status(400).send('No url provided.');
-  }
-  await lighthouse.deleteReports(url);
-  await lighthouse.deleteMetadata(url);
-  await lighthouse.getMedianScoresOfAllUrls();
+  const url = resp.locals.url;
+  await Promise.all([
+    lighthouse.deleteReports(url),
+    lighthouse.deleteMetadata(url),
+  ]);
   resp.status(200).send(`Reports for ${url} removed`);
 });
 
-app.use(function errorHandler(err, req, res, next) {
-  if (res.headersSent) {
+app.use(function errorHandler(err, req, resp, next) {
+  if (resp.headersSent) {
     return next(err);
   }
   console.error('errorHandler', err);
-  res.status(500).send({errors: `${err}`});
+  resp.status(500).send({errors: `${err}`});
 });
 
 app.listen(PORT, () => {

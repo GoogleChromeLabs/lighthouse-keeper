@@ -1,3 +1,20 @@
 runtime: nodejs8
-instance_class: F4
+instance_class: F4_1G
 service: lighthouse
+
+inbound_services:
+  - warmup
+
+handlers:
+#- url: /images
+#  static_dir: static/images
+
+- url: /cron
+  secure: optional
+  script: auto
+  # login: admin # not supported yet by node runtime
+
+- url: /.*
+  secure: always
+  redirect_http_response_code: 301
+  script: auto

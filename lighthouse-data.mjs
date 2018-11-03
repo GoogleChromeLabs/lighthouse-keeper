@@ -396,7 +396,7 @@ function deleteBatch_(query, resolve, reject) {
 /**
  * Deletes all saved reports for a given URL.
  * @param {string} url URL to fetch reports for.
- * @return {!Promise<undefined>}
+ * @return {!Promise<boolean>}
  * @export
  */
 export async function deleteReports(url) {
@@ -404,10 +404,19 @@ export async function deleteReports(url) {
   const collectionRef = db.collection(slugify(url));
   const query = collectionRef.orderBy('__name__').limit(batchSize);
 
-  // TODO: Clear caches?
-  return new Promise((resolve, reject) => {
+  const deletePromise = new Promise((resolve, reject) => {
     deleteBatch_(query, resolve, reject);
   });
+
+  // Delete reports and memcache data.
+  await Promise.all([
+    deletePromise,
+    memcache.delete(`getReports_${slugify(url)}`),
+    memcache.delete('getAllSavedUrls'),
+    memcache.delete('getMedianScoresOfAllUrls'),
+  ]);
+
+  return Promise.resolve(true);
 }
 
 /**
