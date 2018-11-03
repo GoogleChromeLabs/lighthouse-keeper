@@ -26,6 +26,7 @@ const SERVICE_ACCOUNT_FILE = './serviceAccount.json';
 const STORAGE_BUCKET = 'webdotdevsite.appspot.com';
 const serviceAccountJSON = JSON.parse(fs.readFileSync(SERVICE_ACCOUNT_FILE));
 
+const USE_CACHE = true;
 const MAX_REPORTS = 10;
 
 function slugify(url) {
@@ -203,7 +204,7 @@ export async function runLighthouseAPI(url, replace=true) {
  * @return {!Promise<string>}
  * @export
  */
-export async function getAllSavedUrls({useCache}={useCache: true}) {
+export async function getAllSavedUrls({useCache}={useCache: USE_CACHE}) {
   const val = await memcache.get('getAllSavedUrls');
   if (val && useCache) {
     return val;
@@ -281,7 +282,7 @@ export async function getMedianScores(url, maxResults=MAX_REPORTS) {
  * @export
  */
 export async function getMedianScoresOfAllUrls(
-    {maxResults, useCache}={maxResults: MAX_REPORTS, useCache: true}) {
+    {maxResults, useCache}={maxResults: MAX_REPORTS, useCache: USE_CACHE}) {
   const val = await memcache.get('getMedianScoresOfAllUrls');
   if (val && useCache) {
     return val;
@@ -323,7 +324,7 @@ export async function getMedianScoresOfAllUrls(
  * @export
  */
 export async function getReports(url,
-    {maxResults, useCache}={maxResults: MAX_REPORTS, useCache: true}) {
+    {maxResults, useCache}={maxResults: MAX_REPORTS, useCache: USE_CACHE}) {
   const cacheKey = `getReports_${slugify(url)}`;
   const val = await memcache.get(cacheKey);
   if (val && useCache) {
