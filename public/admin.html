@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>Lighthouse Keeper Admin</title>
+  <link rel="stylesheet" href="//fonts.googleapis.com/css?family=Google+Sans:400,500|Roboto:400,400italic,500,500italic,700,700italic|Roboto+Mono:400,500,700|Material+Icons">
+  <!-- <link rel="stylesheet" href="base.css"> -->
+  <style>
+    body {
+      font-family: "Google Sans", sans-serif;
+      padding: 40px;
+      font-weight: 300;
+    }
+    h1, h2 {
+      font-weight: 300;
+    }
+    ul {
+      list-style: none;
+      padding: 0;
+    }
+    li {
+      line-height: 32px;
+    }
+  </style>
+</head>
+<body>
+
+<main>
+  <div id="urllist"></div>
+</main>
+
+<!-- <script src="https://www.gstatic.com/firebasejs/5.5.7/firebase-app.js"></script> -->
+<!-- <script src="https://www.gstatic.com/firebasejs/5.5.7/firebase-firestore.js"></script> -->
+<script type="module">
+import {html, render} from '/node_modules/lit-html/lit-html.js';
+import {repeat} from '/node_modules/lit-html/directives/repeat.js';
+
+// firebase.initializeApp({
+//   apiKey: "AIzaSyDcgFsnAfpPCYoVa6TnylNgDxzPJhREI_k",
+//   authDomain: "webdotdevsite.firebaseapp.com",
+//   databaseURL: "https://webdotdevsite.firebaseio.com",
+//   projectId: "webdotdevsite",
+//   storageBucket: "webdotdevsite.appspot.com",
+// });
+
+// const db = firebase.firestore();
+// db.settings({timestampsInSnapshots: true});
+
+async function removeUrl(e) {
+  e.preventDefault();
+
+  const url = e.target.dataset.url;
+  const params = new URL(location).searchParams;
+  const key = params.get('key');
+
+  const resp = await fetch('/lh/remove', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'X-SECRET-KEY': key},
+    body: JSON.stringify({url}),
+  }).then(resp => resp.text());
+
+  console.log(resp);
+  e.target.parentElement.remove();
+}
+
+async function loadUrls() {
+  const urls = await fetch('/lh/urls').then(resp => resp.json());
+
+  const tmpl = html`
+    <ul>
+      ${repeat(urls, url => url, (url, i) => {
+        return html`<li>${url} [ <a href="#" @click="${removeUrl}" data-url="${url}">remove</a> ]</li>`;
+      })}
+    </ul>`;
+
+  render(tmpl, document.querySelector('#urllist'));
+}
+
+loadUrls();
+</script>
+</body>
+</html>
