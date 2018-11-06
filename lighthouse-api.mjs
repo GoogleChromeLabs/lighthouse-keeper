@@ -64,9 +64,11 @@ class LighthouseAPI {
     Object.keys(LHR.categories).forEach(cat => {
       // Note: API uses "best_practices" instead of "best-practices".
       // This is going away soon.
-      auditUrl.searchParams.append('category', cat.replace(/-/g, '_'));
+      auditUrl.searchParams.append('category', cat);
     });
     auditUrl.searchParams.set('url', url);
+
+    console.info('Lighthouse API request:', auditUrl.toString());
 
     try {
       const resp = await fetch(auditUrl);
