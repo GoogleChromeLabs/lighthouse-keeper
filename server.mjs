@@ -62,6 +62,8 @@ function requireUrlQueryParam(req, resp, next) {
     }
   }
 
+  console.info('Passed url:', url);
+
   if (!url) {
     resp.status(400).send('No url provided.');
     return;
@@ -139,11 +141,17 @@ app.get('/cron/delete_stale_lighthouse_reports', async (req, resp) => {
   resp.status(200).send('Stale LH runs removed');
 });
 
-// Enable cors on rest of handlers.
+// Enable cors on all other handlers.
 app.use(function enableCors(req, resp, next) {
   resp.set('Access-Control-Allow-Origin', '*');
   resp.set('Access-Control-Allow-Headers', 'Content-Type');
-  resp.set('Access-Control-Allow-Methods', 'POST, GET');
+  resp.set('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE');
+
+  if (req.method === 'OPTIONS') {
+    resp.send(200);
+    return;
+  }
+
   next();
 });
 
@@ -231,7 +239,7 @@ app.post('/lh/newaudit', async (req, resp, next) => {
   // Replace results when user is running new audit. Cron adds new entry.
   const replace = !req.get('X-AppEngine-QueueName');
   // const json = await lighthouse.runLighthouse(url, replace);
-  const json = await lighthouse.runLighthouseAPI(url, replace)
+  const json = await lighthouse.runLighthouseAPI(url, replace);
   if (json.errors) {
     return resp.status(400).json(json);
   }
