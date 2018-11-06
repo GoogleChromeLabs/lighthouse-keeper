@@ -62,7 +62,7 @@ function requireUrlQueryParam(req, resp, next) {
     }
   }
 
-  console.info('Passed url:', url);
+  console.info('Url:', url);
 
   if (!url) {
     resp.status(400).send('No url provided.');
@@ -87,7 +87,7 @@ function requireUrlQueryParam(req, resp, next) {
 app.use(bodyParser.raw());
 app.use(bodyParser.json());
 // app.use(bodyParser.text());
-app.use(express.static('public'));
+app.use(express.static('public', {extensions: ['html', 'htm']}));
 app.use('/node_modules', express.static('node_modules'));
 
 app.get('/lh/seed_urls', async (req, resp) => {
