@@ -86,14 +86,11 @@ class LighthouseAPI {
         throw Error(json.error.errors);
       }
 
-      let lhr = json.lighthouseResponse;
+      let lhr = json.lighthouseResult;
       if (!lhr) {
-        throw Error('Lighthouse API response: missing lighthouseResponse.');
+        throw Error('Lighthouse API response: missing lighthouseResult.');
       }
 
-      // TODO(ericbidelman): LHR results in object are a string but might
-      // become an object in the future. Support both for now.
-      lhr = (typeof lhr === 'string') ? JSON.parse(lhr) : lhr;
       delete lhr.i18n; // Remove extra cruft.
 
       const crux = {};
