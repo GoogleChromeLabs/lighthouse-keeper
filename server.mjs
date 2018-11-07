@@ -65,7 +65,7 @@ function requireUrlQueryParam(req, resp, next) {
   console.info('Url:', url);
 
   if (!url) {
-    resp.status(400).send('No url provided.');
+    resp.status(400).json({errors: 'No url provided.'});
     return;
   }
 
