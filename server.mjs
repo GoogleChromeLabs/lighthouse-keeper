@@ -27,7 +27,7 @@ import fileNamer from 'lighthouse/lighthouse-core/lib/file-namer.js';
 const PORT = process.env.PORT || 8080;
 const LHR = JSON.parse(fs.readFileSync('./lhr.json', 'utf8'));
 const serviceAccountJSON = JSON.parse(fs.readFileSync('./serviceAccount.json'));
-const STALE_DATA_TRESHOLD = 60; // Num days after data is considered stale.
+const STALE_DATA_THRESHOLD = 60; // Num days after data is considered stale.
 
 const app = express();
 
@@ -126,7 +126,7 @@ app.get('/cron/delete_stale_lighthouse_reports', async (req, resp) => {
         'Sorry, handler can only be run as a GAE cron job.');
   }
 
-  const dateOffset = (24 * 60 * 60 * 1000) * STALE_DATA_TRESHOLD; // In ms
+  const dateOffset = (24 * 60 * 60 * 1000) * STALE_DATA_THRESHOLD; // In ms
   const cutoffDate = new Date();
   cutoffDate.setTime(cutoffDate.getTime() - dateOffset);
 
