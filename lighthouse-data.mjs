@@ -97,10 +97,12 @@ export async function getFullReport(url) {
  * @param {!Object} json
  * @param {boolean} replace If true, replaces the last saved report with this
  *     new result. False, saves a new report.
+ * @param {boolean=} saveReport If true, saves the URL in the system and tracks
+ *     results over time. Defaults to false.
  * @return {!Promise<!Object>}
  * @export
  */
-export async function saveReport(url, json, replace) {
+export async function finalizeReport(url, json, replace, saveReport=false) {
   const lhr = json.lhr;
 
   delete lhr.i18n; // remove cruft we don't to store.
@@ -122,22 +124,25 @@ export async function saveReport(url, json, replace) {
     data.crux = json.crux;
   }
 
-  const collectionRef = db.collection(slugify(url));
-  const querySnapshot = await collectionRef
-      .orderBy('auditedOn', 'desc').limit(1).get();
+  if (saveReport) {
+    const collectionRef = db.collection(slugify(url));
+    const querySnapshot = await collectionRef
+        .orderBy('auditedOn', 'desc').limit(1).get();
 
-  const lastDoc = querySnapshot.docs[0];
+    const lastDoc = querySnapshot.docs[0];
 
-  // New URL added to system. Delete cached list.
-  if (!lastDoc) {
-    await memcache.delete('getAllSavedUrls');
-  }
+    // If no previous results for this URL, it mean we're adding a new one to
+    // the system and need to delete the cached list.
+    if (!lastDoc) {
+      await memcache.delete('getAllSavedUrls');
+    }
 
-  await uploadReport(lhr, slugify(url));
-  if (replace && lastDoc) {
-    await lastDoc.ref.update(data); // Replace last entry with updated vals.
-  } else {
-    await collectionRef.add(data); // Add new report.
+    await uploadReport(lhr, slugify(url));
+    if (replace && lastDoc) {
+      await lastDoc.ref.update(data); // Replace last entry with updated vals.
+    } else {
+      await collectionRef.add(data); // Add new report.
+    }
   }
 
   await updateLastViewed(url);
@@ -146,6 +151,8 @@ export async function saveReport(url, json, replace) {
     memcache.delete(`getReports_${slugify(url)}`),
     memcache.delete('getMedianScoresOfAllUrls'),
   ]);
+
+  data.lhr = lhr; // add back in full lhr to return val.
 
   return data;
 }
@@ -173,10 +180,12 @@ export async function getUrlsLastViewedBefore(cutoffDate) {
  * @param {string} url Url to audit.
  * @param {boolean=} replace If true, replaces the last saved report with this
  *     new result. False, saves a new report. Defaults to true.
+ * @param {boolean=} saveReport If true, saves the URL in the system and tracks
+ *     results over time. Defaults to false.
  * @return {!Object} API response.
  * @export
  */
-export async function runLighthouseAPI(url, replace=true) {
+export async function runLighthouseAPI(url, replace=true, saveReport=false) {
   const api = new LighthouseAPI(serviceAccountJSON.PSI_API_KEY);
 
   let json = {};
@@ -189,7 +198,7 @@ export async function runLighthouseAPI(url, replace=true) {
           `${json.lhr.runtimeError.code} ${json.lhr.runtimeError.message}`);
     }
 
-    json = await saveReport(url, json, replace);
+    json = await finalizeReport(url, json, replace, saveReport);
   } catch (err) {
     console.log(err);
     json.errors = `${err}`;

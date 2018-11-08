@@ -236,10 +236,12 @@ app.get('/lh/medians', async (req, resp, next) => {
 app.use('/lh/newaudit', requireUrlQueryParam);
 app.post('/lh/newaudit', async (req, resp, next) => {
   const url = resp.locals.url;
-  // Replace results when user is running new audit. Cron adds new entry.
+  // Replace results when user is running a new audit. Cron adds new entries.
   const replace = !req.get('X-AppEngine-QueueName');
-  // const json = await lighthouse.runLighthouse(url, replace);
-  const json = await lighthouse.runLighthouseAPI(url, replace);
+  const requestsSave = 'save' in req.body ? Boolean(req.body.save) : false;
+  const saveReport = req.get('X-AppEngine-QueueName') || requestsSave;
+
+  const json = await lighthouse.runLighthouseAPI(url, replace, saveReport);
   if (json.errors) {
     return resp.status(400).json(json);
   }

@@ -34,7 +34,9 @@ class LighthouseAPI {
    * @export
    */
   static get endpoints() {
-    const scope = 'https://www-googleapis-staging.sandbox.google.com/pagespeedonline';
+    //const scope = 'https://www-googleapis-staging.sandbox.google.com/pagespeedonline';
+    const scope = 'https://www.googleapis.com/pagespeedonline';
+
     return {
       scope,
       audit: `${scope}/${this.version}/runPagespeed`,
