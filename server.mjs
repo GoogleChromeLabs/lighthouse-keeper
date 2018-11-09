@@ -212,8 +212,12 @@ app.get('/lh/reports', async (req, resp, next) => {
   } else {
     reports = await lighthouse.getReports(url);
     // Filter results from before start date.
+    let date = Number(sinceDate);
+    if (Number.isNaN(date)) {
+      date = sinceDate;
+    }
     reports = reports.filter(report => {
-      return new Date(report.auditedOn) >= new Date(sinceDate);
+      return new Date(report.auditedOn) >= new Date(date);
     });
   }
 
