@@ -211,8 +211,9 @@ app.get('/lh/reports', async (req, resp, next) => {
     reports = reports.slice(0, 1);
   } else {
     reports = await lighthouse.getReports(url);
-    // Filter results from before start date.
-    let date = Number(sinceDate);
+    // Filter results from before start date. Over-compensate by 1 hr to make
+    // sure results are returned in audit time and timestamp are close.
+    let date = Number(sinceDate - (60 * 1000));
     if (Number.isNaN(date)) {
       date = sinceDate;
     }
