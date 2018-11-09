@@ -30,6 +30,17 @@
       display: flex;
       align-items: center;
     }
+    #user {
+      display: flex;
+      align-items: center;
+      font-weight: 500;
+    }
+    .profileimage {
+      height: 30px;
+      width: 30px;
+      border-radius: 50%;
+      margin-right: 8px;
+    }
     .remove_link {
       max-height: 18px;
       margin-right: 8px;
@@ -49,21 +60,43 @@
 <body>
 
 <main>
+  <header>
+    <span id="user"></span>
+  </header>
   <div id="urllist"></div>
 </main>
 
 <script src="https://www.gstatic.com/firebasejs/5.5.7/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/5.5.7/firebase-auth.js"></script>
 <script src="https://www.gstatic.com/firebasejs/5.5.7/firebase-firestore.js"></script>
 <script src="http://cdn.date-fns.org/v2.0.0-alpha0/date_fns.min.js"></script>
 <script type="module">
-import {html, render, directive} from '/node_modules/lit-html/lit-html.js';
+import {html, render} from '/node_modules/lit-html/lit-html.js';
 import {repeat} from '/node_modules/lit-html/directives/repeat.js';
 
 const STALE_AFTER = 60; // days
 
-firebase.initializeApp({projectId: "webdotdevsite"});
+firebase.initializeApp({
+  projectId: "webdotdevsite",
+  apiKey: "AIzaSyDcgFsnAfpPCYoVa6TnylNgDxzPJhREI_k",
+  authDomain: "webdotdevsite.firebaseapp.com",
+});
 const db = firebase.firestore();
 db.settings({timestampsInSnapshots: true});
+
+/**
+ * @return {!Object} User.
+ */
+async function login() {
+  try {
+    const result = await firebase.auth().signInWithPopup(
+        new firebase.auth.GoogleAuthProvider());
+    // const token = result.credential.accessToken;
+    return result.user;
+  } catch (err) {
+    console.error(err);
+  }
+}
 
 /**
  * @param {string} url
@@ -175,8 +208,23 @@ function slugify(url) {
 
 (async() => {
 
-// await loadUrls();
-loadUrls();
+firebase.auth().onAuthStateChanged(async user => {
+  if (!user) {
+    await login();
+  }
+
+  if (!user.email.endsWith('@google.com')) {
+    render(html`Sorry, you are not allowed to view this page.`,
+        document.querySelector('#urllist'));
+    return;
+  }
+
+  render(html`
+      <img src="${user.photoURL}" class="profileimage">
+      <span>${user.email}</span>`, document.querySelector('#user'));
+
+  loadUrls();  // async
+});
 
 })();
 </script>
