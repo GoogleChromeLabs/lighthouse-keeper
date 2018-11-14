@@ -2279,9 +2279,10 @@ lighthouse-logger@^1.0.0, lighthouse-logger@^1.2.0:
     debug "^2.6.8"
     marky "^1.2.0"
 
-lighthouse@GoogleChrome/lighthouse#master:
+lighthouse@^4.0.0-alpha.0:
   version "4.0.0-alpha.0"
-  resolved "https://codeload.github.com/GoogleChrome/lighthouse/tar.gz/c93b028d808a8564d586711cc7a2da283f2d7ef8"
+  resolved "https://registry.yarnpkg.com/lighthouse/-/lighthouse-4.0.0-alpha.0.tgz#3b7ad589c21d9395ed9d5130958c4465f5a4614f"
+  integrity sha512-rqqK35dKYWrncQmf0Yw3vKd0T65MxHDRR9qXkOANYakKrE1U0n6aQNYHtmnU0gTFcK/tD1xWJugYG7haOGvTog==
   dependencies:
     axe-core "3.0.0-beta.2"
     chrome-launcher "^0.10.5"
@@ -2311,10 +2312,10 @@ lighthouse@GoogleChrome/lighthouse#master:
     yargs "3.32.0"
     yargs-parser "7.0.0"
 
-lit-html@^0.12.0:
-  version "0.12.0"
-  resolved "https://registry.yarnpkg.com/lit-html/-/lit-html-0.12.0.tgz#d994420fda74744f9d4a79401b086de929643e6a"
-  integrity sha512-NyFgq8yTlGEjUFQOmNnK/kj+ZdDVJzTwsLunNSewGiOns7SjuJi6ymCCqzZZ81uW2VwEmliMbOlFZc9QmOJPLA==
+lit-html@^0.13.0:
+  version "0.13.0"
+  resolved "https://registry.yarnpkg.com/lit-html/-/lit-html-0.13.0.tgz#d05e7fe8ade572432120339c451c614669788adf"
+  integrity sha512-p3R2ji/ucNVG5skguy8WufmSYIdMiTTb9ObUVYM2bOuvIXzDnUiePXGwP5BDbKssW1K6fw1Oj/M07FzdPLsTXw==
 
 load-json-file@^1.0.0:
   version "1.1.0"
@@ -3398,10 +3399,10 @@ rollup-plugin-terser@^3.0.0:
     serialize-javascript "^1.5.0"
     terser "^3.8.2"
 
-rollup@^0.67.0:
-  version "0.67.0"
-  resolved "https://registry.yarnpkg.com/rollup/-/rollup-0.67.0.tgz#16d4f259c55224dded6408e7666b7731500797a3"
-  integrity sha512-p34buXxArhwv9ieTdHvdhdo65Cbig68s/Z8llbZuiX5e+3zCqnBF02Ck9IH0tECrmvvrJVMws32Ry84hTnS1Tw==
+rollup@^0.67.1:
+  version "0.67.1"
+  resolved "https://registry.yarnpkg.com/rollup/-/rollup-0.67.1.tgz#4094110c944d3c9e25b5bf196771b51132ec3adb"
+  integrity sha512-BfwL9pw5VyxrAWx/G1tP8epgG+NH4KcR78aoWacV7+dFp1Mj6ynH8QTIC/lDQ3KlwzDakqZmJQ4LQ7TmLg+pBA==
   dependencies:
     "@types/estree" "0.0.39"
     "@types/node" "*"

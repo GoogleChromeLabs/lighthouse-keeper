@@ -13,3 +13,10 @@ cron:
   target: lighthouse
   retry_parameters:
     job_retry_limit: 1
+- description: "Updates median score for every LH category"
+  url: /cron/update_median_scores
+  schedule: every day 04:00
+  timezone: America/Los_Angeles
+  target: lighthouse
+  retry_parameters:
+    job_retry_limit: 2

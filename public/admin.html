@@ -159,6 +159,7 @@ async function loadUrls() {
   cutoffDate.setTime(cutoffDate.getTime() - dateOffset);
 
   const tmpl = html`
+    <div>${urls.length} saved urls</div>
     <ul>
       ${repeat(urls, url => url, (url, i) => {
         const lastViewedPromise = results[i].lastViewed;

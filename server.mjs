@@ -90,20 +90,20 @@ app.use(bodyParser.json());
 app.use(express.static('public', {extensions: ['html', 'htm']}));
 app.use('/node_modules', express.static('node_modules'));
 
-app.get('/lh/seed_urls', async (req, resp) => {
-  let urls = await lighthouse.getAllSavedUrls();
-  if (urls.length) {
-    return resp.status(401).send('URLs have already been seeded.');
-  }
+// app.get('/lh/seed_urls', async (req, resp) => {
+//   let urls = await lighthouse.getAllSavedUrls();
+//   if (urls.length) {
+//     return resp.status(401).send('URLs have already been seeded.');
+//   }
 
-  // Schedule async task to fetch a new LH report for each URL in the seed.
-  urls = JSON.parse(fs.readFileSync('./url_seed.json', 'utf8'));
-  for (const url of urls) {
-    createTask(url).catch(err => console.error(err));
-  }
+//   // Schedule async task to fetch a new LH report for each URL in the seed.
+//   urls = JSON.parse(fs.readFileSync('./url_seed.json', 'utf8'));
+//   for (const url of urls) {
+//     createTask(url).catch(err => console.error(err));
+//   }
 
-  resp.status(201).send('Update tasks scheduled');
-});
+//   resp.status(201).send('Update tasks scheduled');
+// });
 
 app.get('/cron/update_lighthouse_scores', async (req, resp) => {
   if (!req.get('X-Appengine-Cron')) {
@@ -136,9 +136,16 @@ app.get('/cron/delete_stale_lighthouse_reports', async (req, resp) => {
     return lighthouse.deleteReports(url).then(() => lighthouse.deleteMetadata(url));
   }));
 
-  // Seeds memcache with the list of saved urls and median scores.
-  await lighthouse.getMedianScoresOfAllUrls();
   resp.status(200).send('Stale LH runs removed');
+});
+
+app.get('/cron/update_median_scores', async (req, resp) => {
+  if (!req.get('X-Appengine-Cron')) {
+    return resp.status(403).send(
+        'Sorry, handler can only be run as a GAE cron job.');
+  }
+  const medians = await lighthouse.updateMedianScoresOfAllUrls();
+  resp.status(200).send(`Median scores updated. ${JSON.stringify(medians)}`);
 });
 
 // Enable cors on all other handlers.

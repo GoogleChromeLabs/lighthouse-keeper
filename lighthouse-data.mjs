@@ -124,32 +124,33 @@ export async function finalizeReport(url, json, replace, saveReport=false) {
     data.crux = json.crux;
   }
 
-  if (saveReport) {
-    const collectionRef = db.collection(slugify(url));
-    const querySnapshot = await collectionRef
-        .orderBy('auditedOn', 'desc').limit(1).get();
+  const collectionRef = db.collection(slugify(url));
+  const querySnapshot = await collectionRef
+      .orderBy('auditedOn', 'desc').limit(1).get();
 
-    const lastDoc = querySnapshot.docs[0];
+  const lastDoc = querySnapshot.docs[0];
 
-    // If no previous results for this URL, it mean we're adding a new one to
-    // the system and need to delete the cached list.
-    if (!lastDoc) {
-      await memcache.delete('getAllSavedUrls');
-    }
+  // // If no previous results for this URL, it mean we're adding a new one to
+  // // the system and need to delete the cached list.
+  // if (!lastDoc) {
+  //   await memcache.delete('getAllSavedUrls');
+  // }
 
-    await uploadReport(lhr, slugify(url));
-    if (replace && lastDoc) {
-      await lastDoc.ref.update(data); // Replace last entry with updated vals.
-    } else {
-      await collectionRef.add(data); // Add new report.
-    }
+  await uploadReport(lhr, slugify(url));
+  if (replace && lastDoc) {
+    await lastDoc.ref.update(data); // Replace last entry with updated vals.
+  } else {
+    await collectionRef.add(data); // Add new report.
   }
 
-  await updateLastViewed(url);
+  // Users manually running an audit updates last viewed. Cron does not.
+  if (replace) {
+    await updateLastViewed(url);
+  }
+
   // Clear relevant caches.
   await Promise.all([
     memcache.delete(`getReports_${slugify(url)}`),
-    memcache.delete('getMedianScoresOfAllUrls'),
   ]);
 
   data.lhr = lhr; // add back in full lhr to return val.
@@ -214,16 +215,22 @@ export async function runLighthouseAPI(url, replace=true, saveReport=false) {
  * @export
  */
 export async function getAllSavedUrls({useCache}={useCache: USE_CACHE}) {
-  const val = await memcache.get('getAllSavedUrls');
-  if (val && useCache) {
-    return val;
-  }
+  // if (useCache) {
+  //   const val = await memcache.get('getAllSavedUrls');
+  //   if (val) {
+  //     return val;
+  //   }
+  // }
 
-  const collections = await db.getCollections();
-  const urls = collections.filter(c => c.id.startsWith('http'))
-      .map(c => deslugify(c.id)).sort();
+  const meta = await db.collection('meta').get();
+  const urls = meta.docs.filter(doc => doc.id.startsWith('http'))
+      .map(doc => deslugify(doc.id)).sort();
 
-  await memcache.set('getAllSavedUrls', urls);
+  // if (useCache) {
+  //   await memcache.set('getAllSavedUrls', urls);
+  // }
+
+  console.info(`urls in system: ${urls.length}`);
 
   return urls;
 }
@@ -285,24 +292,42 @@ export async function getMedianScores(url, maxResults=MAX_REPORTS) {
 }
 
 /**
- *  Updates the last viewed metadata for a URL.
+ *  Gets the median scores for all categories, across all saved urls.
  * @param {{maxResults: number=, useCache: boolean=}} Config object.
  * @return {!Promise<!Object>}
  * @export
  */
 export async function getMedianScoresOfAllUrls(
     {maxResults, useCache}={maxResults: MAX_REPORTS, useCache: USE_CACHE}) {
-  const val = await memcache.get('getMedianScoresOfAllUrls');
-  if (val && useCache) {
-    return val;
+  if (useCache) {
+    const val = await memcache.get('getMedianScoresOfAllUrls');
+    if (val) {
+      return val;
+    }
   }
 
-  const combinedScores = {};
+  console.warn('No cached medians.');
 
+  return {};
+}
+
+/**
+ * Updates median scores for all categories, across all urls.
+ * @param {{maxResults: number=, useCache: boolean=}} Config object.
+ * @return {!Promise<!Object>}
+ * @export
+ */
+export async function updateMedianScoresOfAllUrls(
+    {maxResults, useCache}={maxResults: 1, useCache: USE_CACHE}) {
+  const combinedScores = {};
   const urls = await getAllSavedUrls();
-  for (const url of urls) {
-    const urlScores = await getAllScores(url, maxResults);
-    Object.entries(urlScores).map(([cat, scores]) => {
+
+  console.info(`Calculating median category scores of ${urls.length} urls`);
+
+  const urlScores = await Promise.all(
+    urls.map(url => getAllScores(url, maxResults)));
+  for (const score of urlScores) {
+    Object.entries(score).map(([cat, scores]) => {
       if (!combinedScores[cat]) {
         combinedScores[cat] = [];
       }
@@ -317,7 +342,8 @@ export async function getMedianScoresOfAllUrls(
   });
 
   if (useCache) {
-    await memcache.set('getMedianScoresOfAllUrls', medians);
+    const success = await memcache.set('getMedianScoresOfAllUrls', medians);
+    console.log(`Median scores saved to memcache: ${success}`);
   }
 
   return medians;
@@ -335,10 +361,12 @@ export async function getMedianScoresOfAllUrls(
 export async function getReports(url,
     {maxResults, useCache}={maxResults: MAX_REPORTS, useCache: USE_CACHE}) {
   const cacheKey = `getReports_${slugify(url)}`;
-  const val = await memcache.get(cacheKey);
-  if (val && useCache) {
-    await updateLastViewed(url); // "touch" last viewed timestamp for URL.
-    return val;
+  if (useCache) {
+    const val = await memcache.get(cacheKey);
+    if (val) {
+      await updateLastViewed(url); // "touch" last viewed timestamp for URL.
+      return val;
+    }
   }
 
   const querySnapshot = await db.collection(slugify(url))
@@ -421,8 +449,6 @@ export async function deleteReports(url) {
   await Promise.all([
     deletePromise,
     memcache.delete(`getReports_${slugify(url)}`),
-    memcache.delete('getAllSavedUrls'),
-    memcache.delete('getMedianScoresOfAllUrls'),
   ]);
 
   return Promise.resolve(true);
