@@ -63,9 +63,8 @@ class LighthouseAPI {
     auditUrl.searchParams.set('locale', 'en_US');
     auditUrl.searchParams.set('strategy', 'mobile');
     // Include all categories.
-    Object.keys(LHR.categories).forEach(cat => {
-      // Note: API uses "best_practices" instead of "best-practices".
-      // This is going away soon.
+    const cats = Object.keys(LHR.categories).filter(cat => cat !== 'pwa');
+    cats.forEach(cat => {
       auditUrl.searchParams.append('category', cat);
     });
     auditUrl.searchParams.set('url', url);
