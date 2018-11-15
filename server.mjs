@@ -249,16 +249,42 @@ app.use('/lh/newaudit', requireUrlQueryParam);
 app.post('/lh/newaudit', async (req, resp, next) => {
   const url = resp.locals.url;
   // Replace results when user is running a new audit. Cron adds new entries.
-  const replace = !req.get('X-AppEngine-QueueName');
-  const requestsSave = 'save' in req.body ? Boolean(req.body.save) : false;
-  const saveReport = req.get('X-AppEngine-QueueName') || requestsSave;
+  // const replace = !req.get('X-AppEngine-QueueName');
+  // const requestsSave = 'save' in req.body ? Boolean(req.body.save) : false;
+  // const saveReport = req.get('X-AppEngine-QueueName') || requestsSave;
 
-  const json = await lighthouse.runLighthouseAPI(url, replace, saveReport);
+  const json = await lighthouse.runLighthouseAPI(url);//, replace);
   if (json.errors) {
     return resp.status(400).json(json);
   }
   resp.status(201).json(json);
 });
+
+// app.use('/lh/interest', requireUrlQueryParam);
+// app.post('/lh/interest', async (req, resp, next) => {
+//   const newUrl = resp.locals.url;
+//   const oldUrl = req.body.oldUrl || null;
+
+//   // Only adjust counts if new url is diff than old one.
+//   if (oldUrl === null || newUrl === oldUrl) {
+//     return;
+//   }
+
+//   const [urlInterest, oldUrlInterest] = await Promise.all(
+//     lighthouse.incrementInterestCount(newUrl),
+//     lighthouse.decrementInterestCount(oldUrl),
+//   );
+
+//   // If no users are left watching the url, remove it.
+//   if (oldUrlInterest < 1) {
+//     await Promise.all([
+//       lighthouse.deleteReports(oldUrl),
+//       lighthouse.deleteMetadata(oldUrl),
+//     ]);
+//   }
+
+//   resp.status(200).send('Interest counts updated.');
+// });
 
 app.use('/lh/remove', requireUrlQueryParam);
 app.use('/lh/remove', requireAdminUser);

@@ -19,8 +19,9 @@ import Firestore from '@google-cloud/firestore';
 import gcs from '@google-cloud/storage';
 const CloudStorage = gcs.Storage;
 import ReportGenerator from 'lighthouse/lighthouse-core/report/report-generator.js';
-import Memcache from './memcache.mjs';
+// import Memcache from './memcache.mjs';
 import LighthouseAPI from './lighthouse-api.mjs';
+import isSameDay from 'date-fns/is_same_day';
 
 const SERVICE_ACCOUNT_FILE = './serviceAccount.json';
 const STORAGE_BUCKET = 'webdotdevsite.appspot.com';
@@ -97,12 +98,10 @@ export async function getFullReport(url) {
  * @param {!Object} json
  * @param {boolean} replace If true, replaces the last saved report with this
  *     new result. False, saves a new report.
- * @param {boolean=} saveReport If true, saves the URL in the system and tracks
- *     results over time. Defaults to false.
  * @return {!Promise<!Object>}
  * @export
  */
-export async function finalizeReport(url, json, replace, saveReport=false) {
+export async function finalizeReport(url, json, replace) {
   const lhr = json.lhr;
 
   delete lhr.i18n; // remove cruft we don't to store.
@@ -129,29 +128,33 @@ export async function finalizeReport(url, json, replace, saveReport=false) {
       .orderBy('auditedOn', 'desc').limit(1).get();
 
   const lastDoc = querySnapshot.docs[0];
+  if (lastDoc) {
+    const lastDocAuditedOn = lastDoc.data().auditedOn;
+    const ts = new Firestore.Timestamp(
+        lastDocAuditedOn._seconds, lastDocAuditedOn._nanoseconds);
 
-  // // If no previous results for this URL, it mean we're adding a new one to
-  // // the system and need to delete the cached list.
-  // if (!lastDoc) {
-  //   await memcache.delete('getAllSavedUrls');
-  // }
+    // If user hits the "Run Audit" more than once on the same day, (force)
+    // replace their latest report for the day rather than creating a new entry.
+    if (isSameDay(ts.toDate(), today)) {
+      replace = true;
+    }
+  }
 
+  // GCP always stores the latest full report.
   await uploadReport(lhr, slugify(url));
+
   if (replace && lastDoc) {
     await lastDoc.ref.update(data); // Replace last entry with updated vals.
   } else {
     await collectionRef.add(data); // Add new report.
   }
 
-  // Users manually running an audit updates last viewed. Cron does not.
-  if (replace) {
-    await updateLastViewed(url);
-  }
+  await updateLastViewed(url); // Update url's last touch timestamp.
 
-  // Clear relevant caches.
-  await Promise.all([
-    memcache.delete(`getReports_${slugify(url)}`),
-  ]);
+  // // Clear relevant caches.
+  // await Promise.all([
+  //   memcache.delete(`getReports_${slugify(url)}`),
+  // ]);
 
   data.lhr = lhr; // add back in full lhr to return val.
 
@@ -180,13 +183,11 @@ export async function getUrlsLastViewedBefore(cutoffDate) {
  * Audits a site using the Lighthouse API.
  * @param {string} url Url to audit.
  * @param {boolean=} replace If true, replaces the last saved report with this
- *     new result. False, saves a new report. Defaults to true.
- * @param {boolean=} saveReport If true, saves the URL in the system and tracks
- *     results over time. Defaults to false.
+ *     new result. False, saves a new report. Defaults to false.
  * @return {!Object} API response.
  * @export
  */
-export async function runLighthouseAPI(url, replace=true, saveReport=false) {
+export async function runLighthouseAPI(url, replace=false) {
   const api = new LighthouseAPI(serviceAccountJSON.PSI_API_KEY);
 
   let json = {};
@@ -199,7 +200,7 @@ export async function runLighthouseAPI(url, replace=true, saveReport=false) {
           `${json.lhr.runtimeError.code} ${json.lhr.runtimeError.message}`);
     }
 
-    json = await finalizeReport(url, json, replace, saveReport);
+    json = await finalizeReport(url, json, replace);
   } catch (err) {
     console.log(err);
     json.errors = `${err}`;
@@ -236,12 +237,40 @@ export async function getAllSavedUrls({useCache}={useCache: USE_CACHE}) {
 }
 
 /**
- *  Updates the last viewed metadata for a URL.
+ * Updates the last viewed metadata for a URL.
  * @param {string} url
  * @return {!Promise}
  */
 async function updateLastViewed(url) {
   return db.doc(`meta/${slugify(url)}`).set({lastViewed: new Date()});
+}
+
+/**
+ * Increments the interest count for an url.
+ * @param {string} url
+ * @return {!Promise<number>} Promise that resolves the new interest count
+ *     for the url.
+ */
+export async function incrementInterestCount(url) {
+  const docRef = db.doc(`meta/${slugify(url)}`);
+  const meta = await docRef.get();
+  const {interestCount = 0} = meta.data();
+  await docRef.set({interestCount: ++interestCount});
+  return interestCount;
+}
+
+/**
+ * Decrements the interest count for an url.
+ * @param {string} url
+ * @return {!Promise<number>} Promise that resolves the new interest count
+ *     for the url.
+ */
+export async function decrementInterestCount(url) {
+  const docRef = db.doc(`meta/${slugify(url)}`);
+  const meta = await docRef.get();
+  const {interestCount = 0} = meta.data();
+  await docRef.set({interestCount: --interestCount});
+  return interestCount;
 }
 
 /**
@@ -299,12 +328,12 @@ export async function getMedianScores(url, maxResults=MAX_REPORTS) {
  */
 export async function getMedianScoresOfAllUrls(
     {maxResults, useCache}={maxResults: MAX_REPORTS, useCache: USE_CACHE}) {
-  if (useCache) {
-    const val = await memcache.get('getMedianScoresOfAllUrls');
-    if (val) {
-      return val;
-    }
-  }
+  // if (useCache) {
+  //   const val = await memcache.get('getMedianScoresOfAllUrls');
+  //   if (val) {
+  //     return val;
+  //   }
+  // }
 
   console.warn('No cached medians.');
 
@@ -341,10 +370,10 @@ export async function updateMedianScoresOfAllUrls(
     medians[cat] = median(scores);
   });
 
-  if (useCache) {
-    const success = await memcache.set('getMedianScoresOfAllUrls', medians);
-    console.log(`Median scores saved to memcache: ${success}`);
-  }
+  // if (useCache) {
+  //   const success = await memcache.set('getMedianScoresOfAllUrls', medians);
+  //   console.log(`Median scores saved to memcache: ${success}`);
+  // }
 
   return medians;
 }
@@ -360,14 +389,14 @@ export async function updateMedianScoresOfAllUrls(
  */
 export async function getReports(url,
     {maxResults, useCache}={maxResults: MAX_REPORTS, useCache: USE_CACHE}) {
-  const cacheKey = `getReports_${slugify(url)}`;
-  if (useCache) {
-    const val = await memcache.get(cacheKey);
-    if (val) {
-      await updateLastViewed(url); // "touch" last viewed timestamp for URL.
-      return val;
-    }
-  }
+  // const cacheKey = `getReports_${slugify(url)}`;
+  // if (useCache) {
+  //   const val = await memcache.get(cacheKey);
+  //   if (val) {
+  //     await updateLastViewed(url); // "touch" last viewed timestamp for URL.
+  //     return val;
+  //   }
+  // }
 
   const querySnapshot = await db.collection(slugify(url))
       .orderBy('auditedOn', 'desc').limit(maxResults).get();
@@ -392,9 +421,9 @@ export async function getReports(url,
   // Attach full lighthouse report to last entry.
   runs[runs.length - 1].lhr = await getFullReport(url);
 
-  if (useCache) {
-    await memcache.set(cacheKey, runs);
-  }
+  // if (useCache) {
+  //   await memcache.set(cacheKey, runs);
+  // }
 
   return runs;
 }
@@ -448,7 +477,7 @@ export async function deleteReports(url) {
   // Delete reports and memcache data.
   await Promise.all([
     deletePromise,
-    memcache.delete(`getReports_${slugify(url)}`),
+    // memcache.delete(`getReports_${slugify(url)}`),
   ]);
 
   return Promise.resolve(true);
@@ -481,7 +510,7 @@ const db = new Firestore({
   timestampsInSnapshots: true,
 });
 
-const memcache = new Memcache();
+// const memcache = new Memcache();
 
 const storage = new CloudStorage({
   projectId: serviceAccountJSON.project_id,
