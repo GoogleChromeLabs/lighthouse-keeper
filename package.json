@@ -33,7 +33,7 @@
     "body-parser": "^1.18.3",
     "date-fns": "^1.29.0",
     "express": "^4.16.4",
-    "lighthouse": "GoogleChrome/lighthouse#master",
+    "lighthouse": "4.0.0-alpha.1",
     "lit-html": "^0.13.0",
     "memjs": "^1.2.0",
     "node-fetch": "2.1.2",
