@@ -149,6 +149,7 @@ export async function finalizeReport(url, json, replace) {
     await collectionRef.add(data); // Add new report.
   }
 
+  // TODO: when we re-enable the cron, it should not update the last viewed.
   await updateLastViewed(url); // Update url's last touch timestamp.
 
   // // Clear relevant caches.
