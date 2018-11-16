@@ -15,6 +15,7 @@
  */
 
 import fs from 'fs';
+import fetch from 'node-fetch';
 import Firestore from '@google-cloud/firestore';
 import gcs from '@google-cloud/storage';
 const CloudStorage = gcs.Storage;
@@ -119,7 +120,7 @@ export async function finalizeReport(url, json, replace) {
     auditedOn: today,
   };
 
-  if (Object.keys(json.crux).length) {
+  if (json.crux && Object.keys(json.crux).length) {
     data.crux = json.crux;
   }
 
@@ -178,6 +179,53 @@ export async function getUrlsLastViewedBefore(cutoffDate) {
         staleUrls.push(doc.id);
       }));
   return staleUrls;
+}
+
+/**
+ * Audits a site using Lighthouse CI infra.
+ * @param {string} url Url to audit.
+ * @param {boolean=} replace If true, replaces the last saved report with this
+ *     new result. False, saves a new report. Defaults to false.
+ * @return {!Object} Report object saved to Firestore.
+ * @export
+ */
+export async function runLighthouseCI(url, replace=false) {
+  const CI_URL = 'https://builder-dot-lighthouse-ci.appspot.com/ci';
+  const CI_API_KEY = 'webdev';
+
+  console.info('Using Lighthouse CI', url);
+
+  let json = {};
+
+  try {
+    const resp = await fetch(CI_URL, {
+      method: 'POST',
+      body: JSON.stringify({url, format: 'json'}),
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-KEY': CI_API_KEY,
+      }
+    });
+
+    if (!resp.ok) {
+      console.log(resp);
+      throw new Error(`(${resp.status}) ${resp.statusText}`);
+    }
+
+    const lhr = await resp.json();
+
+    // https://github.com/GoogleChrome/lighthouse/issues/6336
+    if (lhr.runtimeError && lhr.runtimeError.code !== 'NO_ERROR') {
+      throw new Error(`${lhr.runtimeError.code} ${lhr.runtimeError.message}`);
+    }
+
+    json = await finalizeReport(url, {lhr}, replace);
+  } catch (err) {
+    console.log(err);
+    json.errors = `${err}`;
+  }
+
+  return json;
 }
 
 /**

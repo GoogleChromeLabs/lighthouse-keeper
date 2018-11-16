@@ -28,6 +28,7 @@ const PORT = process.env.PORT || 8080;
 const LHR = JSON.parse(fs.readFileSync('./lhr.json', 'utf8'));
 const serviceAccountJSON = JSON.parse(fs.readFileSync('./serviceAccount.json'));
 const STALE_DATA_THRESHOLD = 60; // Num days after data is considered stale.
+const USE_LH_CI = false;
 
 const app = express();
 
@@ -61,8 +62,6 @@ function requireUrlQueryParam(req, resp, next) {
       // noop
     }
   }
-
-  console.info('Url:', url);
 
   if (!url) {
     resp.status(400).json({errors: 'No url provided.'});
@@ -253,7 +252,13 @@ app.post('/lh/newaudit', async (req, resp, next) => {
   // const requestsSave = 'save' in req.body ? Boolean(req.body.save) : false;
   // const saveReport = req.get('X-AppEngine-QueueName') || requestsSave;
 
-  const json = await lighthouse.runLighthouseAPI(url);//, replace);
+  let json = {};
+  if (USE_LH_CI) {
+    json = await lighthouse.runLighthouseCI(url);//, replace);
+  } else {
+    json = await lighthouse.runLighthouseAPI(url);//, replace);
+  }
+
   if (json.errors) {
     return resp.status(400).json(json);
   }
