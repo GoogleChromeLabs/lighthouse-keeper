@@ -73,10 +73,6 @@ class LighthouseAPI {
 
     try {
       const resp = await fetch(auditUrl);
-      if (!resp.ok) {
-        throw Error(`${resp.status} from Lighthouse API: ${resp.statusText}`);
-      }
-
       const json = await resp.json();
 
       if (json.captchaResult && json.captchaResult !== 'CAPTCHA_NOT_NEEDED') {
@@ -84,7 +80,11 @@ class LighthouseAPI {
       }
 
       if (json.error) {
-        throw Error(json.error.errors);
+        throw Error(`${json.error.message}`);
+      }
+
+      if (!resp.ok) {
+        throw Error(`${resp.status} from Lighthouse API: ${resp.statusText}`);
       }
 
       let lhr = json.lighthouseResult;
@@ -106,7 +106,6 @@ class LighthouseAPI {
 
       return {lhr, crux};
     } catch (err) {
-      console.error(err);
       throw err;
     }
   }

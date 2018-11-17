@@ -258,9 +258,15 @@ app.post('/lh/newaudit', async (req, resp, next) => {
   } else {
     json = await lighthouse.runLighthouseAPI(url);//, replace);
   }
-
   if (json.errors) {
-    return resp.status(400).json(json);
+    let statusCode = 400;
+    // API will always return 500s if something went wrong, attempt to resurface
+    // status code LH returned instead.
+    const match = json.errors.match(/Status code: (\d{3})/i);
+    if (match) {
+      statusCode = match[1];
+    }
+    return resp.status(statusCode).json(json);
   }
   resp.status(201).json(json);
 });

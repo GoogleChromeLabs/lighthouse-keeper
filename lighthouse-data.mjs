@@ -251,7 +251,7 @@ export async function runLighthouseAPI(url, replace=false) {
 
     json = await finalizeReport(url, json, replace);
   } catch (err) {
-    console.log(err);
+    console.error(err);
     json.errors = `${err}`;
   }
 
