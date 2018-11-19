@@ -30,10 +30,23 @@
       display: flex;
       align-items: center;
     }
+    .summary {
+      margin: 16px 0;
+    }
+    #search {
+      padding: 8px;
+      min-width: 200px;
+    }
     #user {
       display: flex;
       align-items: center;
       font-weight: 500;
+    }
+    #loading {
+      display: none;
+    }
+    #loading.show {
+      display: initial;
     }
     .profileimage {
       height: 30px;
@@ -50,6 +63,9 @@
       margin-left: 16px;
       color: #888;
     }
+    .help {
+      color: #888;
+    }
     .material-icons.md-18 { font-size: 18px; }
     .material-icons.md-24 { font-size: 24px; }
     .red { color: var(--md-red); }
@@ -62,6 +78,13 @@
 <main>
   <header>
     <span id="user"></span>
+    <p>Use the input below to search for urls saved in web.dev. Note: only
+      the first part of an url is matched.</p>
+    <p>
+      <span class="help">https?://</span>
+      <input type="text" id="search">
+      <span id="loading">Loading urls...</span>
+    </p>
   </header>
   <div id="urllist"></div>
 </main>
@@ -83,6 +106,10 @@ firebase.initializeApp({
 });
 const db = firebase.firestore();
 db.settings({timestampsInSnapshots: true});
+
+const urlContainer = document.querySelector('#urllist');
+const loadingEl = document.querySelector('#loading');
+const allUrls = [];
 
 /**
  * @return {!Object} User.
@@ -144,70 +171,197 @@ async function getReports(url) {
   return report;
 }
 
-async function loadUrls() {
-  const urls = await fetch('/lh/urls').then(resp => resp.json());
-
-  const results = await Promise.all(urls.map(url => {
-    return {
-      lastViewed: getLastViewed(url),
-      // runs: getReports(url)
-    };
-  }));
-
-  const dateOffset = (24 * 60 * 60 * 1000) * STALE_AFTER; // 60 days in ms.
-  const cutoffDate = new Date();
-  cutoffDate.setTime(cutoffDate.getTime() - dateOffset);
-
-  const tmpl = html`
-    <div>${urls.length} saved urls</div>
-    <ul>
-      ${repeat(urls, url => url, (url, i) => {
-        const lastViewedPromise = results[i].lastViewed;
-        const lastViewed = lastViewedPromise.then(lastViewed => {
-          return new Intl.DateTimeFormat('en-US', {
-            day: 'numeric', month: 'short', hour: 'numeric', minute: 'numeric',
-          }).format(lastViewed);
-        });
-
-        const daysOldPromise = lastViewedPromise.then(lastViewed => {
-          const daysOld = dateFns.differenceInCalendarDays(lastViewed, cutoffDate);
-
-          let classColor = 'green';
-          if (daysOld < 40) {
-            classColor = 'orange';
-          } else if (daysOld < 20) {
-            classColor = 'red';
-          }
-
-          return {
-            daysOld,
-            classColor,
-          };
-        });
-
-        return html`
-          <li class="url-item">
-            <a href="#" @click="${removeUrl}" data-url="${url}"
-               class="remove_link">
-              <i class="material-icons md-18 red">delete</i>
-            </a>
-            <span>${url}</span>
-            <span class="lastviewed">Last accessed ${lastViewed}</span>
-            <span class="lastviewed">
-              <b>${daysOldPromise.then(r => r.daysOld)} days</b> until removal
-            </span>
-          </li>`;
-      })}
-    </ul>`;
-
-  render(tmpl, document.querySelector('#urllist'));
+function docParts(doc) {
+  return {
+    url: deslugify(doc.id),
+    lastViewed: new Date(doc.data().lastViewed.seconds * 1000),
+  };
 }
+
+/**
+ * @param (!Function) url
+ */
+function getAllUrls(onResults, {totalNumBatches = 20, batchSize = 100}={}) {
+  const urls = [];
+
+  const queryNextPage = (startAfter = null, batchNum = 1) => {
+    if (batchNum > totalNumBatches) {
+      return;
+    }
+
+    let query = db.collection('meta').orderBy('__name__').limit(batchSize);
+
+    if (startAfter) {
+      query = query.startAfter(startAfter);
+    }
+
+    query.get().then(snapshot => {
+      if (snapshot.empty) {
+        onResults({complete: true, urls: []});
+        return;
+      }
+
+      const newUrls = snapshot.docs.map(doc => docParts(doc));
+
+      // snapshot.forEach(doc => {
+      //   // urls.push(doc.data());
+      //   urls.push(deslugify(doc.id));
+      // });
+
+      onResults({urls: newUrls, complete: false});
+
+      const lastDocSeen = snapshot.docs.slice(-1)[0];
+      queryNextPage(lastDocSeen, batchNum + 1);
+    });
+  };
+
+  queryNextPage();
+}
+
+async function urlsThatMatch(q, limit) {
+  const results = [];
+
+  // Strip https?:// prefix if user included it.
+  const match = q.match(/^https?:\/\/(.*)/);
+  if (match) {
+    q = match[1];
+  }
+
+  const queryResults = [
+    `http:____${q}`,
+    `http:____www.${q}`,
+    `https:____${q}`,
+    `https:____www.${q}`,
+  ].map(query => {
+    return db.collection('meta')
+      .orderBy('__name__')
+      .startAt(query)
+      .endAt(`${query}\uf8ff`) // https://stackoverflow.com/questions/46642641/sql-like-operator-in-cloud-firestore
+      .limit(limit)
+      .get()
+      .then(snapshot => {
+        return snapshot.docs.map(doc => docParts(doc));
+      });
+  });
+
+  return Promise.all(queryResults)
+      .then(results => results.flat());
+}
+
+// async function loadUrls() {
+//   const urls = await fetch('/lh/urls').then(resp => resp.json());
+//   const results = await Promise.all(urls.map(url => {
+//     return {
+//       lastViewed: getLastViewed(url),
+//       // runs: getReports(url)
+//     };
+//   }));
+
+//   renderUrls(urls);
+// }
 
 function slugify(url) {
   return url.replace(/\//g, '__');
 }
 
+function deslugify(id) {
+  return id.replace(/__/g, '/');
+}
+
+/**
+ * @param {!Array<{{url: string, lastViewed: !Date}}>} urls
+ */
+function renderUrls(urls) {
+  const dateOffset = (24 * 60 * 60 * 1000) * STALE_AFTER; // 60 days in ms.
+  const cutoffDate = new Date();
+  cutoffDate.setTime(cutoffDate.getTime() - dateOffset);
+
+  const tmpl = html`
+    <div class="summary">Showing first ${urls.length} results for query.</div>
+    <ul>
+      ${repeat(urls, url => url.url, (url, i) => {
+        // const lastViewedPromise = url.lastViewed;
+        // const lastViewed = lastViewedPromise.then(lastViewed => {
+        //   return new Intl.DateTimeFormat('en-US', {
+        //     day: 'numeric', month: 'short', hour: 'numeric', minute: 'numeric',
+        //   }).format(lastViewed);
+        // });
+
+        // const daysOldPromise = lastViewedPromise.then(lastViewed => {
+        //   const daysOld = dateFns.differenceInCalendarDays(lastViewed, cutoffDate);
+
+        //   let classColor = 'green';
+        //   if (daysOld < 40) {
+        //     classColor = 'orange';
+        //   } else if (daysOld < 20) {
+        //     classColor = 'red';
+        //   }
+
+        //   return {
+        //     daysOld,
+        //     classColor,
+        //   };
+        // });
+
+        const lastViewed = new Intl.DateTimeFormat('en-US', {
+          day: 'numeric', month: 'short', hour: 'numeric', minute: 'numeric',
+        }).format(url.lastViewed);
+
+        const daysOld = dateFns.differenceInCalendarDays(url.lastViewed, cutoffDate);
+
+        // let classColor = 'green';
+        // if (daysOld < 40) {
+        //   classColor = 'orange';
+        // } else if (daysOld < 20) {
+        //   classColor = 'red';
+        // }
+
+        return html`
+          <li class="url-item">
+            <a href="#" @click="${removeUrl}" data-url="${url.url}"
+               class="remove_link">
+              <i class="material-icons md-18 red">delete</i>
+            </a>
+            <a href="${url.url}" target="_blank">${url.url}</a>
+            <span class="lastviewed">Last accessed ${lastViewed}</span>
+            <span class="lastviewed">
+              <b>${daysOld} days</b> until removal
+            </span>
+          </li>`;
+      })}
+    </ul>`;
+
+  render(tmpl, urlContainer);
+}
+
+function debounce(func, delay) {
+  let inDebounce;
+  return function() {
+    const context = this;
+    const args = arguments;
+    clearTimeout(inDebounce);
+    inDebounce = setTimeout(() => func.apply(context, args), delay);
+  }
+}
+
 (async() => {
+
+const search = document.querySelector('#search');
+// search.addEventListener('input', debounce((e) => {
+search.addEventListener('change', async e => {
+  const q = e.target.value;
+  if (!q) {
+    renderUrls([]);
+    return;
+  }
+  console.log(q);
+
+  loadingEl.classList.add('show');
+  const urls = await urlsThatMatch(q, 2500);
+  renderUrls(urls);
+  loadingEl.classList.remove('show');
+});
+// }, 100));
 
 firebase.auth().onAuthStateChanged(async user => {
   if (!user) {
@@ -224,7 +378,17 @@ firebase.auth().onAuthStateChanged(async user => {
       <img src="${user.photoURL}" class="profileimage">
       <span>${user.email}</span>`, document.querySelector('#user'));
 
-  loadUrls();  // async
+  // getAllUrls(({urls, complete}) => {
+  //   if (complete) {
+  //     console.info('Done');
+  //     console.info(`${allUrls.length} urls in system`);
+  //     return;
+  //   }
+
+  //   allUrls.push(...urls);
+  //   renderUrls(allUrls);
+  //   console.log(allUrls.length);
+  // }, {totalNumBatches: 10, batchSize: 1000});
 });
 
 })();
