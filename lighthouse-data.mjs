@@ -82,14 +82,22 @@ async function uploadReport(lhr, name) {
  */
 export async function getFullReport(url) {
   const bucket = storage.bucket(STORAGE_BUCKET);
-  const filename = `lhrs/${slugify(url)}.json`;
-  const file = bucket.file(filename);
-  const fileExists = (await file.exists())[0];
-  if (fileExists) {
-    const data = await file.download();
-    const lhr = JSON.parse(data);
-    return lhr;
+
+  const filenames = [
+    `lhrs/${slugify(url)}.json`,
+    `lhrs/${encodeURI(slugify(url))}.json`, // attemp to file url encoded version.
+  ];
+
+  for (const filename of filenames) {
+    const file = bucket.file(filename);
+    const fileExists = (await file.exists())[0];
+    if (fileExists) {
+      const data = await file.download();
+      const lhr = JSON.parse(data);
+      return lhr;
+    }
   }
+
   return null;
 }
 
