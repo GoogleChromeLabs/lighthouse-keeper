@@ -81,10 +81,12 @@ GET /lh/reports?url=https://example.com/
 GET /lh/reports?url=https://example.com/&since=2018-10-25
 ```
 
-Lists the URLs that have been saved in the system.
+Lists the number of URLs that have been saved in the system.
 
 ```
 GET /lh/urls
+
+{count: 123456789}
 ```
 
 Displays the latest Lighthouse HTML report for `url`. If the `download` param
@@ -129,7 +131,7 @@ Engine backend.
 GET /cron/update_lighthouse_scores
 ```
 
-Used by the cron job (see `cron.yaml`) to delete existing results if the URL hasn't been 
+Used by the cron job (see `cron.yaml`) to delete existing results if the URL hasn't been
 viewed/audited or otherwise "touched" in the last 60 days. **Note**: this handler is only accessible to the App
 Engine backend.
 

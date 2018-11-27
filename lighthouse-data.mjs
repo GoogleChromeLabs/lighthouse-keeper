@@ -272,26 +272,68 @@ export async function runLighthouseAPI(url, replace=false) {
  * @return {!Promise<string>}
  * @export
  */
-export async function getAllSavedUrls({useCache}={useCache: USE_CACHE}) {
-  // if (useCache) {
-  //   const val = await memcache.get('getAllSavedUrls');
-  //   if (val) {
-  //     return val;
-  //   }
-  // }
+// export async function getAllSavedUrls({useCache}={useCache: USE_CACHE}) {
+//   // if (useCache) {
+//   //   const val = await memcache.get('getAllSavedUrls');
+//   //   if (val) {
+//   //     return val;
+//   //   }
+//   // }
 
-  const meta = await db.collection('meta').get();
-  const urls = meta.docs.filter(doc => doc.id.startsWith('http'))
-      .map(doc => deslugify(doc.id)).sort();
+//   const meta = await db.collection('meta').get();
+//   const urls = meta.docs.filter(doc => doc.id.startsWith('http'))
+//       .map(doc => deslugify(doc.id)).sort();
 
-  // if (useCache) {
-  //   await memcache.set('getAllSavedUrls', urls);
-  // }
+//   // if (useCache) {
+//   //   await memcache.set('getAllSavedUrls', urls);
+//   // }
 
-  console.info(`urls in system: ${urls.length}`);
+//   console.info(`urls in system: ${urls.length}`);
 
-  return urls;
+//   return urls;
+// }
+
+/**
+ * @param (!Function) url
+ */
+export function getAllSavedUrls(onResults, {
+    totalNumBatches = Number.POSITIVE_INFINITY, batchSize = 1000}={}) {
+  const urls = [];
+
+  const queryNextPage = (startAfter = null, batchNum = 1) => {
+    if (batchNum > totalNumBatches) {
+      return;
+    }
+
+    let query = db.collection('meta').orderBy('__name__').limit(batchSize);
+
+    if (startAfter) {
+      query = query.startAfter(startAfter);
+    }
+
+    query.get().then(snapshot => {
+      if (snapshot.empty) {
+        onResults({complete: true, urls: []});
+        return;
+      }
+
+      const newUrls = snapshot.docs
+        .filter(doc => doc.id.startsWith('http'))
+        .map(doc => ({
+          url: deslugify(doc.id),
+          lastViewed: new Date(doc.data().lastViewed.seconds * 1000),
+        }));
+
+      onResults({urls: newUrls, complete: false});
+
+      const lastDocInQueryResult = snapshot.docs.slice(-1)[0];
+      queryNextPage(lastDocInQueryResult, batchNum + 1);
+    });
+  };
+
+  queryNextPage();
 }
+
 
 /**
  * Updates the last viewed metadata for a URL.
@@ -300,6 +342,33 @@ export async function getAllSavedUrls({useCache}={useCache: USE_CACHE}) {
  */
 async function updateLastViewed(url) {
   return db.doc(`meta/${slugify(url)}`).set({lastViewed: new Date()});
+}
+
+/**
+ * @param {string} docId Document id in Firestore.
+ * @return {!Promise<?Number>}
+ */
+export async function getCount(docId) {
+  const ref = db.collection('counters').doc(docId);
+  const doc = await ref.get();
+  return !doc.exists ? null : Number(doc.data().count);
+}
+
+/**
+ * @param {string} docId Document id in Firestore.
+ * @param {Number=} val If present, sets counter to val.
+ * @return {!Promise}
+ */
+export async function incrementCounter(docId, val = null) {
+  const ref = db.collection('counters').doc(docId);
+  const doc = await ref.get();
+  if (!doc.exists) {
+    console.warn(
+      `Could not increment counter /counters/${doc}. It does not exist.`);
+    return;
+  }
+  const count = val !== null ? val : Number(doc.data().count) + 1;
+  return ref.set({count});
 }
 
 /**

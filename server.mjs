@@ -22,6 +22,7 @@ import bodyParser from 'body-parser';
 import {createTask} from './tasks.mjs';
 import Firestore from '@google-cloud/firestore';
 import * as lighthouse from './lighthouse-data.mjs';
+import fetch from 'node-fetch';
 import fileNamer from 'lighthouse/lighthouse-core/lib/file-namer.js';
 
 const PORT = process.env.PORT || 8080;
@@ -104,6 +105,21 @@ app.use('/node_modules', express.static('node_modules'));
 //   resp.status(201).send('Update tasks scheduled');
 // });
 
+/**
+ * Returns true if HEAD request to URL returns 200.
+ * @param url
+ * @return {boolean}
+ */
+async function validUrl(url) {
+  try {
+    const resp = await fetch(url, {method: 'HEAD', mode: 'no-cors'});
+    return resp.ok;
+  } catch (err) {
+    // noop
+  }
+  return false;
+}
+
 app.get('/cron/update_lighthouse_scores', async (req, resp) => {
   if (!req.get('X-Appengine-Cron')) {
     return resp.status(403).send(
@@ -147,6 +163,28 @@ app.get('/cron/update_median_scores', async (req, resp) => {
   resp.status(200).send(`Median scores updated. ${JSON.stringify(medians)}`);
 });
 
+app.get('/cron/update_saved_url_count', async (req, resp) => {
+  if (!req.get('X-Appengine-Cron')) {
+    return resp.status(403).send(
+        'Sorry, handler can only be run as a GAE cron job.');
+  }
+
+  const allUrls = [];
+
+  console.info('Fetching all urls...');
+  lighthouse.getAllSavedUrls(async ({urls, complete}) => {
+    console.info(`Fetched ${urls.length} urls.`);
+
+    if (complete) {
+      resp.status(200).send(`${allUrls.length} urls in system`);
+      await lighthouse.incrementCounter('urls', allUrls.length);
+      return;
+    }
+
+    allUrls.push(...urls);
+  }, {batchSize: 5000});
+});
+
 // Enable cors on all other handlers.
 app.use(function enableCors(req, resp, next) {
   resp.set('Access-Control-Allow-Origin', '*');
@@ -166,7 +204,7 @@ app.get('/lh/categories', (req, resp) => {
     return {
       title: cat.title,
       id: cat.id,
-      manualDescription: cat.manualDescription
+      manualDescription: cat.manualDescription,
     };
   });
   resp.send(result);
@@ -184,7 +222,7 @@ app.get('/lh/audits', (req, resp) => {
 });
 
 app.get('/lh/urls', async (req, resp) => {
-  resp.status(200).json(await lighthouse.getAllSavedUrls());
+  resp.status(200).json({count: await lighthouse.getCount('urls')});
 });
 
 app.use('/lh/html', requireUrlQueryParam);

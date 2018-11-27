@@ -78,8 +78,8 @@
 <main>
   <header>
     <span id="user"></span>
-    <p>Use the input below to search for urls saved in web.dev. Note: only
-      the first part of an url is matched.</p>
+    <p>Use the input below to search the <b id="numurls"></b> urls saved
+      in web.dev. Note: only the first part of an url is matched.</p>
     <p>
       <span class="help">https?://</span>
       <input type="text" id="search">
@@ -127,6 +127,7 @@ async function login() {
 
 /**
  * @param {string} url
+ * @return {!Date}
  */
 async function getLastViewed(url) {
   const doc = await db.doc(`meta/${slugify(url)}`).get();
@@ -374,9 +375,16 @@ firebase.auth().onAuthStateChanged(async user => {
     return;
   }
 
+  const numUrls = fetch('/lh/urls').then(resp => resp.json()).then(json => {
+    return new Intl.NumberFormat('en-US').format(json.count);
+  });
+
   render(html`
       <img src="${user.photoURL}" class="profileimage">
       <span>${user.email}</span>`, document.querySelector('#user'));
+
+  render(html`${numUrls}`, document.querySelector('#numurls'));
+
 
   // getAllUrls(({urls, complete}) => {
   //   if (complete) {
