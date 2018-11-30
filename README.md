@@ -6,7 +6,7 @@ There are several bits:
 
 - Runs the Lighthouse API against a URL and stores reports over time (Firestore). Provides querying capabilities.
 - The latest (full) report for the URL is stored (Google Cloud Storage).
-- The server itself is Google App Engine (NodeJS). Cron jobs schedule tasks to update scores for each URL in the system.
+- The server itself is Google App Engine (NodeJS). Cron jobs schedule tasks to update scores for each URL in the system, calculate median scores for each category, etc.
 
 <img width="1081" alt="web.dev frontend rendering data from this server" src="https://user-images.githubusercontent.com/238208/47517054-e2877b80-d83b-11e8-97d1-b2becc282604.png">
 
