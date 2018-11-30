@@ -8,9 +8,6 @@ There are several bits:
 - The latest (full) report for the URL is stored (Google Cloud Storage).
 - The server itself is Google App Engine (NodeJS). Cron jobs schedule tasks to update scores for each URL in the system.
 
-There's page demo page (`/public/index.html`) that shows how this package can be used to render results.
-Note: if you're testing, `CI_HOST` needs to be switched over to `http:localhost:8080` in the `app.js`.
-
 <img width="1081" alt="web.dev frontend rendering data from this server" src="https://user-images.githubusercontent.com/238208/47517054-e2877b80-d83b-11e8-97d1-b2becc282604.png">
 
 ## Development
