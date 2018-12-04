@@ -96,6 +96,7 @@
 <script type="module">
 import {html, render} from '/node_modules/lit-html/lit-html.js';
 import {repeat} from '/node_modules/lit-html/directives/repeat.js';
+import * as utils from './utils.mjs';
 
 const STALE_AFTER = 60; // days
 
@@ -106,6 +107,8 @@ firebase.initializeApp({
 });
 const db = firebase.firestore();
 db.settings({timestampsInSnapshots: true});
+
+window.db = db;
 
 const urlContainer = document.querySelector('#urllist');
 const loadingEl = document.querySelector('#loading');
@@ -130,7 +133,7 @@ async function login() {
  * @return {!Date}
  */
 async function getLastViewed(url) {
-  const doc = await db.doc(`meta/${slugify(url)}`).get();
+  const doc = await db.doc(`meta/${utils.slugify(url)}`).get();
   return new Date(doc.data().lastViewed.seconds * 1000);
 }
 
@@ -174,7 +177,7 @@ async function getReports(url) {
 
 function docParts(doc) {
   return {
-    url: deslugify(doc.id),
+    url: utils.deslugify(doc.id),
     lastViewed: new Date(doc.data().lastViewed.seconds * 1000),
   };
 }
@@ -206,7 +209,7 @@ function getAllUrls(onResults, {totalNumBatches = 20, batchSize = 100}={}) {
 
       // snapshot.forEach(doc => {
       //   // urls.push(doc.data());
-      //   urls.push(deslugify(doc.id));
+      //   urls.push(utils.deslugify(doc.id));
       // });
 
       onResults({urls: newUrls, complete: false});
@@ -260,14 +263,6 @@ async function urlsThatMatch(q, limit) {
 
 //   renderUrls(urls);
 // }
-
-function slugify(url) {
-  return url.replace(/\//g, '__');
-}
-
-function deslugify(id) {
-  return id.replace(/__/g, '/');
-}
 
 /**
  * @param {!Array<{{url: string, lastViewed: !Date}}>} urls
