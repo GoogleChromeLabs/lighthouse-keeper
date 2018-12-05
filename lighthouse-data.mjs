@@ -708,7 +708,7 @@ export async function removeNextSetOfInvalidUrls(limit = 1000) {
         if (!ok) {
           numRemoved++;
           console.log(`Removed ${url}`);
-          // await removeUrl(url);
+          await removeUrl(url);
         }
         await updateLastVerified(url);
         return {ok, url};

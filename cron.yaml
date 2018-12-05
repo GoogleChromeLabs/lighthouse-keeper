@@ -15,7 +15,7 @@ cron:
     job_retry_limit: 1
 - description: "Removes URLs which are invalid (e.g. return 403/404/500)."
   url: /cron/remove_invalid_urls
-  schedule: every 1 minutes
+  schedule: every 2 minutes
   timezone: America/Los_Angeles
   target: lighthouse
   retry_parameters:
