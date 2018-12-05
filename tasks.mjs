@@ -19,15 +19,14 @@
 import fs from 'fs';
 import cloudTasks from '@google-cloud/tasks';
 
-const QUEUE = 'update-lighthouse-scores';
 const LOCATION = 'us-central1';
 const PROJECT_ID = JSON.parse(fs.readFileSync('./serviceAccount.json')).project_id;
 
-async function createTask(url) {
+export async function createRunLighthouseTask(url) {
   try {
     const client = new cloudTasks.CloudTasksClient();
     const response = await client.createTask({
-      parent: client.queuePath(PROJECT_ID, LOCATION, QUEUE),
+      parent: client.queuePath(PROJECT_ID, LOCATION, 'update-lighthouse-scores'),
       task: {
         appEngineHttpRequest: {
           httpMethod: 'POST',
@@ -42,13 +41,30 @@ async function createTask(url) {
         // },
       },
     });
-    const task = response[0].name;
-    return task;
+    return response[0].name;
   } catch (err) {
-    console.error(`Error in createTask: ${err.message || err}`);
+    console.error(`Error in createRunLighthouseTask: ${err.message || err}`);
   }
 
   return null;
 }
 
-export {createTask};
+export async function createRemoveInvalidUrlsTask() {
+  try {
+    const client = new cloudTasks.CloudTasksClient();
+    const response = await client.createTask({
+      parent: client.queuePath(PROJECT_ID, LOCATION, 'remove-invalid-urls'),
+      task: {
+        appEngineHttpRequest: {
+          httpMethod: 'POST',
+          relativeUri: '/task/remove_invalid_urls',
+        },
+      },
+    });
+    return response[0].name;
+  } catch (err) {
+    console.error(`Error in createRemoveInvalidUrlsTask: ${err.message || err}`);
+  }
+
+  return null;
+}

@@ -36,6 +36,11 @@ const serviceAccountJSON = JSON.parse(fs.readFileSync(SERVICE_ACCOUNT_FILE));
 
 const USE_CACHE = true;
 const MAX_REPORTS = 10;
+// See firebase.google.com/docs/firestore/quotas#writes_and_transactions
+const MAX_DOCS_PER_BATCH = 500;
+
+const MAX_CONCURRENT_REQUESTS = 20;
+const MAX_FETCH_TIMEOUT = 30 * 1000;
 // Start query from last known invalid url. Last entry in file is the url we
 // left off at.
 const INVALID_URLS_FILENAME = './invalidurls.txt';
@@ -141,6 +146,7 @@ export async function finalizeReport(url, json, replace) {
 
   // TODO: when we re-enable the cron, it should not update the last viewed.
   await updateLastViewed(url); // Update url's last touch timestamp.
+  await updateLastVerified(url); // We've (re)verified url doesn't error out.
 
   // // Clear relevant caches.
   // await Promise.all([
@@ -248,9 +254,9 @@ export async function runLighthouseAPI(url, replace=false) {
 }
 
 /**
- * @param (!Function) url
+ * @param {!Function} url
  */
-export function getAllSavedUrls(onResults, {
+export function getSavedUrls(onResults, {
     totalNumBatches = Number.POSITIVE_INFINITY, batchSize = 1000,
     startAfter = null}={}) {
   const urls = [];
@@ -277,7 +283,8 @@ export function getAllSavedUrls(onResults, {
         .filter(doc => doc.id.startsWith('http'))
         .map(doc => ({
           url: utils.deslugify(doc.id),
-          lastViewed: new Date(doc.data().lastViewed.seconds * 1000),
+          // lastViewed: new Date(doc.data().lastViewed.seconds * 1000),
+          doc,
         }));
 
       onResults({urls: newUrls, complete: false});
@@ -297,7 +304,9 @@ export function getAllSavedUrls(onResults, {
  * @return {!Promise}
  */
 async function updateLastViewed(url) {
-  return db.doc(`meta/${utils.slugify(url)}`).update({lastViewed: new Date()});
+  const doc = db.doc(`meta/${utils.slugify(url)}`).set({
+    lastViewed: new Date(),
+  }, {merge: true});
 }
 
 /**
@@ -306,7 +315,9 @@ async function updateLastViewed(url) {
  * @return {!Promise}
  */
 async function updateLastVerified(url) {
-  return db.doc(`meta/${utils.slugify(url)}`).update({lastVerified: new Date()});
+  return db.doc(`meta/${utils.slugify(url)}`).set({
+    lastVerified: new Date(),
+  }, {merge: true});
 }
 
 /**
@@ -440,7 +451,7 @@ export async function getMedianScoresOfAllUrls(
 // export async function updateMedianScoresOfAllUrls(
 //     {maxResults, useCache}={maxResults: 1, useCache: USE_CACHE}) {
 //   const combinedScores = {};
-//   const urls = await getAllSavedUrls();
+//   const urls = await getSavedUrls();
 
 //   console.info(`Calculating median category scores of ${urls.length} urls`);
 
@@ -525,15 +536,13 @@ export async function getReports(url,
  * @param {!Function} resolve Function to call when all batches are deleted.
  * @param {!Function} reject Function to call in case of error.
  */
-function deleteBatch_(query, resolve, reject) {
+function deleteBatch(query, resolve, reject) {
   query.get().then((snapshot) => {
       if (snapshot.size === 0) {
         return 0;
       }
       const batch = db.batch();
-      snapshot.docs.forEach((doc) => {
-        batch.delete(doc.ref);
-      });
+      snapshot.docs.forEach((doc) => batch.delete(doc.ref));
       return batch.commit().then(() => snapshot.size);
     }).then((numDeleted) => {
       if (numDeleted === 0) {
@@ -544,10 +553,26 @@ function deleteBatch_(query, resolve, reject) {
       // exploding the stack.
       // @see https://firebase.google.com/docs/firestore/manage-data/delete-data
       process.nextTick(() => {
-        deleteBatch_(query, resolve, reject);
+        deleteBatch(query, resolve, reject);
       });
     })
     .catch(reject);
+}
+
+/**
+ * Updates documents in Firestore in batch.
+ * @param {!Array<!DocumentReference>} docs
+ * @param {!Object} obj Object to update the document with.
+ * @param {!Promise} Resolves when the batch operation is complete.
+ */
+async function updateBatch(docs, obj) {
+  for (let i = 0; i < docs.length; i += MAX_DOCS_PER_BATCH) {
+    const batch = db.batch();
+    const chunks = docs.slice(i, i + MAX_DOCS_PER_BATCH);
+    chunks.forEach((doc) => batch.update(doc.ref, obj));
+    await batch.commit();
+  }
+  return Promise.resolve(docs.length);
 }
 
 /**
@@ -557,12 +582,11 @@ function deleteBatch_(query, resolve, reject) {
  * @export
  */
 export async function deleteReports(url) {
-  const batchSize = 20;
   const collectionRef = db.collection(utils.slugify(url));
-  const query = collectionRef.orderBy('__name__').limit(batchSize);
+  const query = collectionRef.orderBy('__name__').limit(MAX_DOCS_PER_BATCH);
 
   const deletePromise = new Promise((resolve, reject) => {
-    deleteBatch_(query, resolve, reject);
+    deleteBatch(query, resolve, reject);
   });
 
   // Delete reports and memcache data.
@@ -642,73 +666,145 @@ async function fetchWithTimeout(method, url, timeout=10 * 1000) {
 /**
  * Finds all invalid urls (e.g. that return 400s, 500s) and removes them from
  * the system.
+ * @param {number=} limit Number of urls to validate. Default is 1000.
  * @return {!Promise<{{numRemoved: number, allUrls: !Array<!Object>}}>}
  * @export
  */
-export async function removeInvalidUrls() {
-  const allUrls = [];
-  let numRemoved = 0;
+export async function removeNextSetOfInvalidUrls(limit = 1000) {
+  const meta = await db.doc(`_data/meta`).get();
+  const lastVerifiedRunOn = meta.data().lastVerifiedRunOn.toDate();
 
-  // First, ensure the url list in the file is sorted because items were added
-  // async and are out of order. Want to start at the correct page in firestore.
-  const lines = fs.readFileSync(INVALID_URLS_FILENAME, {encoding: 'utf8'})
-    .split('\n').filter(String).sort();
-  fs.writeFileSync(INVALID_URLS_FILENAME, lines.join('\n') + '\n');
+  const query = db.collection('meta')
+    .where('lastVerified', '>=', lastVerifiedRunOn)
+    .orderBy('lastVerified', 'asc') // earliest, first.
+    // .orderBy('__name__')
+    // .startAfter(new Date(startAfter))
+    .limit(limit);
 
-  const {stdout} = await exec(`tail -1 ${INVALID_URLS_FILENAME}`);
-  const lastUrl = stdout.trim();
-  const startAfter = lastUrl.startsWith('http') ? utils.slugify(lastUrl) : null;
+  const snapshot = await query.get();
+  // If no more docs fetched, reset lastVerifiedRunOn to time far in the past.
+  if (snapshot.empty) {
+    await db.doc(`_data/meta`).set({
+      lastVerifiedRunOn: new Date('2018-11-12T21:49:20.821Z'),
+    }, {merge: true});
+    return {numRemoved: 0, urls: []};
+  }
 
-  let resolver;
-  const promise = new Promise(resolve => resolver = resolve);
+  const lastDocVerifiedDate = snapshot.docs.slice(-1)[0]
+      .get('lastVerified').toDate();
 
-  getAllSavedUrls(async ({urls, complete}) => {
-    if (!complete) {
-      allUrls.push(...urls);
-      console.info(`Fetched ${allUrls.length} urls.`);
-      return;
-    }
+  console.info(`Verifying ${snapshot.size} urls.` +
+      `From ${lastVerifiedRunOn.toJSON()} to ${lastDocVerifiedDate.toJSON()}`);
 
-    console.info(`Validating ${allUrls.length} urls`);
+  try {
+    let numRemoved = 0;
 
-    const stream = fs.createWriteStream(INVALID_URLS_FILENAME, {flags: 'a'});
+    const tasks = snapshot.docs.map(doc => {
+      return async function() {
+        const url = utils.deslugify(doc.id);
+        // Use GET requests b/c they're reliable than HEAD requests.
+        // Some servers don't respond to HEAD.
+        const ok = await fetchWithTimeout('GET', url, MAX_FETCH_TIMEOUT);
+        if (!ok) {
+          numRemoved++;
+          console.log(`Removed ${url}`);
+          // await removeUrl(url);
+        }
+        await updateLastVerified(url);
+        return {ok, url};
+      };
+    });
 
-    try {
-      const start = Date.now();
+    const parallelLimit = util.promisify(async.parallelLimit);
+    const results = await parallelLimit(
+        async.reflectAll(tasks), MAX_CONCURRENT_REQUESTS);
 
-      const tasks = allUrls.map(item => {
-        return async function() {
-          // Use GET requests b/c they're reliable than HEAD requests.
-          // Some servers don't respond to HEAD.
-          const urlIsOk = await fetchWithTimeout('GET', item.url, 30 * 1000);
-          await updateLastVerified(item.url);
-          if (!urlIsOk) {
-            numRemoved++;
-            console.log(item.url);
-            stream.write(`${item.url}\n`);
-            // await removeUrl(item.url);
-          }
-          return {ok: urlIsOk, url: item.url};
-        };
-      });
+    // Reset lastVerifiedRunOn to time far in the past. This essentially will
+    // make the cron job loop around and start checking urls all over again.
+    await db.doc(`_data/meta`).set({
+      lastVerifiedRunOn: lastDocVerifiedDate,
+    }, {merge: true});
 
-      const parallelLimit = util.promisify(async.parallelLimit);
-      const results = await parallelLimit(async.reflectAll(tasks), 20);
-
-      console.log(`Validated ${results.length} urls. Removed ${numRemoved}.`);
-      console.log(`Took ${(Date.now() - start) / 1000} seconds`);
-    } catch (err) {
-      console.error('Async task error', err);
-    }
-
-    stream.end();
-
-    resolver({numRemoved, urls});
-
-  }, {totalNumBatches: 20, batchSize: 1000, startAfter});
-
-  return promise;
+    return {numUrls: results.length, numRemoved};
+  } catch (err) {
+    console.error('Async task error', err);
+  }
 }
+
+// /**
+//  * Finds all invalid urls (e.g. that return 400s, 500s) and removes them from
+//  * the system.
+//  * @param {string=} startAfter
+//  * @return {!Promise<{{numRemoved: number, allUrls: !Array<!Object>}}>}
+//  * @export
+//  */
+// export async function removeInvalidUrls(startAfter) {
+//   const allUrls = [];
+//   let numRemoved = 0;
+
+//   // First, ensure the url list in the file is sorted because items were added
+//   // async and are out of order. Want to start at the correct page in firestore.
+//   const lines = fs.readFileSync(INVALID_URLS_FILENAME, {encoding: 'utf8'})
+//     .split('\n').filter(String).sort();
+//   fs.writeFileSync(INVALID_URLS_FILENAME, lines.join('\n') + '\n');
+
+//   const {stdout} = await exec(`tail -1 ${INVALID_URLS_FILENAME}`);
+//   const lastUrl = stdout.trim();
+//   const startAfter = lastUrl.startsWith('http') ? utils.slugify(lastUrl) : null;
+
+//   let resolver;
+//   const promise = new Promise(resolve => resolver = resolve);
+
+//   getSavedUrls(async ({urls, complete}) => {
+//     urls.push(...urls);
+
+//     if (!complete) {
+//       console.info(`Fetched ${allUrls.length} urls.`);
+//       return;
+//     }
+
+//     console.info(`Validating ${allUrls.length} urls`);
+
+//     const stream = fs.createWriteStream(INVALID_URLS_FILENAME, {flags: 'a'});
+
+//     try {
+//       const start = Date.now();
+
+//       const tasks = allUrls.map(item => {
+//         return async function() {
+//           // Use GET requests b/c they're reliable than HEAD requests.
+//           // Some servers don't respond to HEAD.
+//           const urlIsOk = await fetchWithTimeout('GET', item.url, 30 * 1000);
+//           await updateLastVerified(item.url);
+//           if (!urlIsOk) {
+//             numRemoved++;
+//             console.log(item.url);
+//             // TODO: don't write to fine, just use removeUrl once query by
+//             // lastVerfied data is setup.
+//             stream.write(`${item.url}\n`);
+//             // await removeUrl(item.url);
+//           }
+//           return {ok: urlIsOk, url: item.url};
+//         };
+//       });
+
+//       const parallelLimit = util.promisify(async.parallelLimit);
+//       const results = await parallelLimit(async.reflectAll(tasks), 20);
+
+//       console.log(`Validated ${results.length} urls. Removed ${numRemoved}.`);
+//       console.log(`Took ${(Date.now() - start) / 1000} seconds`);
+//     } catch (err) {
+//       console.error('Async task error', err);
+//     }
+
+//     stream.end();
+
+//     resolver({numRemoved, urls});
+
+//   }, {totalNumBatches: 20, batchSize: 1000, startAfter});
+
+//   return promise;
+// }
 
 /**
  * Generates a LH report in different formats.
@@ -735,7 +831,7 @@ const storage = new CloudStorage({
 });
 
 
-// (async() => {
+(async() => {
 // const urls = fs.readFileSync(INVALID_URLS_FILENAME, {encoding: 'utf8'}).split('\n').filter(String);
 // for (const url of urls) {
 //   console.log('removing', url);
@@ -743,13 +839,60 @@ const storage = new CloudStorage({
 // }
 // })();
 
-// db.collection('meta').orderBy('__name__')
-// .startAfter('http:____www.awwwards.com').limit(10000).get().then(docs => {
-//   docs.forEach(async doc => {
-//     const data = doc.data();
-//     if (!('lastViewed' in data)) {
-//       await doc.ref.update({lastViewed: new Date()});
-//       console.log('no last viewed', doc.id);
+// const urls = await new Promise(resolve => {
+//   const allUrls = [];
+
+//   getSavedUrls(async ({urls, complete}) => {
+//     allUrls.push(...urls);
+
+//     const toUpdate = [];
+
+//     for (const url of urls) {
+//       const doc = url.doc;
+//       const data = doc.data();
+//       if (!('lastViewed' in data)) {
+//         // await doc.ref.update({lastViewed: new Date()});
+//         console.log('no last lastViewed', doc.id);
+//       }
+//       if (!('lastVerified' in data)) {
+//         toUpdate.push(url);
+//         // await doc.ref.update({lastVerified: new Date()});
+//         console.log('no last lastVerified', doc.id);
+//       }
 //     }
-//   });
+
+//     // if (toUpdate.length) {
+//     //   await updateBatch(toUpdate.map(url => url.doc), {lastVerified: new Date()});
+//     //   console.log('Batch updated. Last doc:', toUpdate.slice(-1)[0].url);
+//     // }
+
+//     if (!complete) {
+//       console.info(`Fetched ${allUrls.length} urls.`);
+//       return;
+//     }
+
+//     resolve(allUrls);
+//   }, {totalNumBatches: 100, batchSize: 10000});
 // });
+
+// console.log(urls.length, 'total urls');
+
+// removeNextSetOfInvalidUrls(10);
+
+// db.collection('meta')
+//   .orderBy('lastVerified', 'asc') // earliest, first.
+//   // .orderBy('__name__')
+//   .startAfter(new Date('2018-12-01T04:27:29.062Z'))
+//   .limit(10)
+//   .get().then(docs => {
+//     docs.forEach(doc => {
+//       const data = doc.data();
+//       console.log(doc.id, data.lastVerified.toDate());
+//       if (!('lastVerified' in data)) {
+//         // await doc.ref.update({lastVerified: new Date()});
+//         // console.log('no last lastVerified', doc.id);
+//       }
+//     });
+//   });
+
+})();

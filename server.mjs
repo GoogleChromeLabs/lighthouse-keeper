@@ -19,7 +19,7 @@
 import fs from 'fs';
 import express from 'express';
 import bodyParser from 'body-parser';
-import {createTask} from './tasks.mjs';
+import * as tasks from './tasks.mjs';
 import Firestore from '@google-cloud/firestore';
 import * as lighthouse from './lighthouse-data.mjs';
 import * as utils from './public/utils.mjs';
@@ -45,6 +45,35 @@ function requireAdminUser(req, resp, next) {
   if (key !== serviceAccountJSON.ADMIN_SECRET_KEY) {
     return resp.status(403).send(
       'Sorry, handler can only be run by admin user.');
+  }
+  next();
+}
+
+/**
+ * Middleware to require request comes from task queue.
+ * @param {!Object} req
+ * @param {!Object} resp
+ * @param {!Function} next
+ */
+function requireFromTaskQueue(req, resp, next) {
+  const fromTaskQueue = req.get('X-AppEngine-QueueName');
+  if (!fromTaskQueue) {
+    return resp.status(403).send(
+        'Sorry, handler can only be run from task queue.');
+  }
+  next();
+}
+
+/**
+ * Middleware to require request comes from cron system.
+ * @param {!Object} req
+ * @param {!Object} resp
+ * @param {!Function} next
+ */
+function requireFromCron(req, resp, next) {
+  if (!req.get('X-Appengine-Cron')) {
+    return resp.status(403).send(
+        'Sorry, handler can only be run as a GAE cron job.');
   }
   next();
 }
@@ -94,65 +123,37 @@ app.use(bodyParser.json());
 app.use(express.static('public', {extensions: ['html', 'htm']}));
 app.use('/node_modules', express.static('node_modules'));
 
-// app.get('/lh/seed_urls', async (req, resp) => {
-//   let urls = await lighthouse.getAllSavedUrls();
-//   if (urls.length) {
-//     return resp.status(401).send('URLs have already been seeded.');
-//   }
+app.use('/cron/remove_invalid_urls', requireFromCron);
+app.get('/cron/remove_invalid_urls', async (req, resp) => {
+  tasks.createRemoveInvalidUrlsTask().catch(err => console.error(err));
+  resp.status(201).send('Scheduled remove_invalid_urls task');
+});
 
-//   // Schedule async task to fetch a new LH report for each URL in the seed.
-//   urls = JSON.parse(fs.readFileSync('./url_seed.json', 'utf8'));
+// app.use('/cron/update_lighthouse_scores', requireFromCron);
+// app.get('/cron/update_lighthouse_scores', async (req, resp) => {
+//   // Schedule async tasks to fetch a new LH report for each URL.
+//   const urls = await lighthouse.getSavedUrls();
 //   for (const url of urls) {
-//     createTask(url).catch(err => console.error(err));
+//     tasks.createRunLighthouseTask(url).catch(err => console.error(err));
 //   }
 
 //   resp.status(201).send('Update tasks scheduled');
 // });
 
-app.get('/cron/remove_invalid_urls', async (req, resp) => {
-  // if (!req.get('X-Appengine-Cron')) {
-  //   return resp.status(403).send(
-  //       'Sorry, handler can only be run as a GAE cron job.');
-  // }
-  const {urls, numRemoved} = await lighthouse.removeInvalidUrls();
-  resp.status(200).send(
-    `Validated ${urls.length} urls. Removed ${numRemoved}.`);
-});
-
-app.get('/cron/update_lighthouse_scores', async (req, resp) => {
-  if (!req.get('X-Appengine-Cron')) {
-    return resp.status(403).send(
-        'Sorry, handler can only be run as a GAE cron job.');
-  }
-
-  // Schedule async tasks to fetch a new LH report for each URL.
-  const urls = await lighthouse.getAllSavedUrls();
-  for (const url of urls) {
-    createTask(url).catch(err => console.error(err));
-  }
-
-  resp.status(201).send('Update tasks scheduled');
-});
-
+app.use('/cron/delete_stale_lighthouse_reports', requireFromCron);
 app.get('/cron/delete_stale_lighthouse_reports', async (req, resp) => {
-  if (!req.get('X-Appengine-Cron')) {
-    return resp.status(403).send(
-        'Sorry, handler can only be run as a GAE cron job.');
-  }
-
   const dateOffset = (24 * 60 * 60 * 1000) * STALE_DATA_THRESHOLD; // In ms
   const cutoffDate = new Date();
   cutoffDate.setTime(cutoffDate.getTime() - dateOffset);
 
   const urls = await lighthouse.getUrlsLastViewedBefore(cutoffDate);
 
-  await Promise.all(urls.map(url => {
-    return lighthouse.deleteReports(url).then(() => lighthouse.deleteMetadata(url));
-  }));
+  await Promise.all(urls.map(url => lighthouse.removeUrl(url)));
 
   resp.status(200).send('Stale LH runs removed');
 });
 
+// app.use('/cron/update_median_scores', requireFromCron);
 // app.get('/cron/update_median_scores', async (req, resp) => {
 //   if (!req.get('X-Appengine-Cron')) {
 //     return resp.status(403).send(
@@ -162,14 +163,10 @@ app.get('/cron/delete_stale_lighthouse_reports', async (req, resp) => {
 //   resp.status(200).send(`Median scores updated. ${JSON.stringify(medians)}`);
 // });
 
+app.use('/cron/update_saved_url_count', requireFromCron);
 app.get('/cron/update_saved_url_count', async (req, resp) => {
-  if (!req.get('X-Appengine-Cron')) {
-    return resp.status(403).send(
-        'Sorry, handler can only be run as a GAE cron job.');
-  }
-
   const allUrls = [];
-  lighthouse.getAllSavedUrls(async ({urls, complete}) => {
+  lighthouse.getSavedUrls(async ({urls, complete}) => {
     allUrls.push(...urls);
 
     if (complete) {
@@ -184,6 +181,12 @@ app.get('/cron/update_saved_url_count', async (req, resp) => {
       return;
     }
   }, {batchSize: 5000});
+});
+
+app.use('/task/remove_invalid_urls', requireFromTaskQueue);
+app.post('/task/remove_invalid_urls', async (req, resp, next) => {
+  const {numUrls, numRemoved} = await lighthouse.removeNextSetOfInvalidUrls();
+  resp.status(200).send(`Validated ${numUrls} urls. Removed ${numRemoved}.`);
 });
 
 // Enable cors on all other handlers.

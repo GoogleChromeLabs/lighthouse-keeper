@@ -14,6 +14,11 @@ handlers:
   script: auto
   # login: admin # not supported yet by node runtime
 
+- url: /task
+  secure: optional
+  script: auto
+  # login: admin # not supported yet by node runtime
+
 - url: /.*
   secure: always
   redirect_http_response_code: 301
