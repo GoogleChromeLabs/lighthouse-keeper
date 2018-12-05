@@ -437,7 +437,7 @@ export async function getMedianScoresOfAllUrls(
   //   }
   // }
 
-  console.warn('No cached medians.');
+  // console.warn('No cached medians.');
 
   return {};
 }
@@ -640,7 +640,7 @@ async function fetchWithTimeout(method, url, timeout=10 * 1000) {
     size: 0, // Response body size. 0 disables it.
     compress: true,
   }).then(resp => {
-    console.log(resp.status, resp.statusText, resp.ok, url);
+    // console.log(resp.status, resp.statusText, resp.ok, url);
 
     // If server doesn't support HEAD request, consider it a valid URL.
     if (resp.status === 405) {
@@ -682,7 +682,9 @@ export async function removeNextSetOfInvalidUrls(limit = 1000) {
     .limit(limit);
 
   const snapshot = await query.get();
-  // If no more docs fetched, reset lastVerifiedRunOn to time far in the past.
+
+  // Reset lastVerifiedRunOn to time far in the past. This essentially will
+  // make the cron job loop around and start checking urls all over again.
   if (snapshot.empty) {
     await db.doc(`_data/meta`).set({
       lastVerifiedRunOn: new Date('2018-11-12T21:49:20.821Z'),
@@ -695,6 +697,12 @@ export async function removeNextSetOfInvalidUrls(limit = 1000) {
 
   console.info(`Verifying ${snapshot.size} urls.` +
       `From ${lastVerifiedRunOn.toJSON()} to ${lastDocVerifiedDate.toJSON()}`);
+
+  // Update lastVerifiedRunOn to lastVerified of the last doc in the query
+  // results. Cron picks up from here.
+  await db.doc(`_data/meta`).set({
+    lastVerifiedRunOn: lastDocVerifiedDate,
+  }, {merge: true});
 
   try {
     let numRemoved = 0;
@@ -718,12 +726,6 @@ export async function removeNextSetOfInvalidUrls(limit = 1000) {
     const parallelLimit = util.promisify(async.parallelLimit);
     const results = await parallelLimit(
         async.reflectAll(tasks), MAX_CONCURRENT_REQUESTS);
-
-    // Reset lastVerifiedRunOn to time far in the past. This essentially will
-    // make the cron job loop around and start checking urls all over again.
-    await db.doc(`_data/meta`).set({
-      lastVerifiedRunOn: lastDocVerifiedDate,
-    }, {merge: true});
 
     return {numUrls: results.length, numRemoved};
   } catch (err) {
