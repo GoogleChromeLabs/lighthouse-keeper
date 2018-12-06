@@ -665,7 +665,7 @@ async function fetchWithTimeout(method, url, timeout=10 * 1000) {
  * Finds all invalid urls (e.g. that return 400s, 500s) and removes them from
  * the system.
  * @param {number=} limit Number of urls to validate. Default is 1000.
- * @return {!Promise<{{numRemoved: number, allUrls: !Array<!Object>}}>}
+ * @return {!Promise<{{numRemoved: number, numRemoved: number}}>}
  * @export
  */
 export async function removeNextSetOfInvalidUrls(limit = 1000) {
