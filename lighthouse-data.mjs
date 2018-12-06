@@ -69,7 +69,10 @@ export async function getFullReport(url) {
 
   const filenames = [
     `lhrs/${utils.slugify(url)}.json`,
-    `lhrs/${encodeURI(utils.slugify(url))}.json`, // attemp to file url encoded version.
+    // Attempt to fetch url encoded versions as well.
+    `lhrs/${encodeURI(utils.slugify(url))}.json`,
+    // See github.com/GoogleChrome/web.dev/issues/511.
+    `lhrs/${utils.slugify(url.replace(/\s/g, '+'))}.json`,
   ];
 
   for (const filename of filenames) {
