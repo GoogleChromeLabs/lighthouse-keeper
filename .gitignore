@@ -6,4 +6,3 @@ node_modules
 serviceAccount.json
 memcacheCredentials.json
 allurls.txt
-invalidurls.txt

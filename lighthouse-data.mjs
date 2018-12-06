@@ -41,9 +41,7 @@ const MAX_DOCS_PER_BATCH = 500;
 
 const MAX_CONCURRENT_REQUESTS = 20;
 const MAX_FETCH_TIMEOUT = 30 * 1000;
-// Start query from last known invalid url. Last entry in file is the url we
-// left off at.
-const INVALID_URLS_FILENAME = './invalidurls.txt';
+
 /**
  * Uploads the LH report to Firebase cloud storage.
  * @param {!Object} lhr Full lhr object
@@ -733,81 +731,6 @@ export async function removeNextSetOfInvalidUrls(limit = 1000) {
   }
 }
 
-// /**
-//  * Finds all invalid urls (e.g. that return 400s, 500s) and removes them from
-//  * the system.
-//  * @param {string=} startAfter
-//  * @return {!Promise<{{numRemoved: number, allUrls: !Array<!Object>}}>}
-//  * @export
-//  */
-// export async function removeInvalidUrls(startAfter) {
-//   const allUrls = [];
-//   let numRemoved = 0;
-
-//   // First, ensure the url list in the file is sorted because items were added
-//   // async and are out of order. Want to start at the correct page in firestore.
-//   const lines = fs.readFileSync(INVALID_URLS_FILENAME, {encoding: 'utf8'})
-//     .split('\n').filter(String).sort();
-//   fs.writeFileSync(INVALID_URLS_FILENAME, lines.join('\n') + '\n');
-
-//   const {stdout} = await exec(`tail -1 ${INVALID_URLS_FILENAME}`);
-//   const lastUrl = stdout.trim();
-//   const startAfter = lastUrl.startsWith('http') ? utils.slugify(lastUrl) : null;
-
-//   let resolver;
-//   const promise = new Promise(resolve => resolver = resolve);
-
-//   getSavedUrls(async ({urls, complete}) => {
-//     urls.push(...urls);
-
-//     if (!complete) {
-//       console.info(`Fetched ${allUrls.length} urls.`);
-//       return;
-//     }
-
-//     console.info(`Validating ${allUrls.length} urls`);
-
-//     const stream = fs.createWriteStream(INVALID_URLS_FILENAME, {flags: 'a'});
-
-//     try {
-//       const start = Date.now();
-
-//       const tasks = allUrls.map(item => {
-//         return async function() {
-//           // Use GET requests b/c they're reliable than HEAD requests.
-//           // Some servers don't respond to HEAD.
-//           const urlIsOk = await fetchWithTimeout('GET', item.url, 30 * 1000);
-//           await updateLastVerified(item.url);
-//           if (!urlIsOk) {
-//             numRemoved++;
-//             console.log(item.url);
-//             // TODO: don't write to fine, just use removeUrl once query by
-//             // lastVerfied data is setup.
-//             stream.write(`${item.url}\n`);
-//             // await removeUrl(item.url);
-//           }
-//           return {ok: urlIsOk, url: item.url};
-//         };
-//       });
-
-//       const parallelLimit = util.promisify(async.parallelLimit);
-//       const results = await parallelLimit(async.reflectAll(tasks), 20);
-
-//       console.log(`Validated ${results.length} urls. Removed ${numRemoved}.`);
-//       console.log(`Took ${(Date.now() - start) / 1000} seconds`);
-//     } catch (err) {
-//       console.error('Async task error', err);
-//     }
-
-//     stream.end();
-
-//     resolver({numRemoved, urls});
-
-//   }, {totalNumBatches: 20, batchSize: 1000, startAfter});
-
-//   return promise;
-// }
-
 /**
  * Generates a LH report in different formats.
  * @param {!Object} lhr Lighthouse report object.
@@ -834,51 +757,6 @@ const storage = new CloudStorage({
 
 
 (async() => {
-// const urls = fs.readFileSync(INVALID_URLS_FILENAME, {encoding: 'utf8'}).split('\n').filter(String);
-// for (const url of urls) {
-//   console.log('removing', url);
-//   await removeUrl(url);
-// }
-// })();
-
-// const urls = await new Promise(resolve => {
-//   const allUrls = [];
-
-//   getSavedUrls(async ({urls, complete}) => {
-//     allUrls.push(...urls);
-
-//     const toUpdate = [];
-
-//     for (const url of urls) {
-//       const doc = url.doc;
-//       const data = doc.data();
-//       if (!('lastViewed' in data)) {
-//         // await doc.ref.update({lastViewed: new Date()});
-//         console.log('no last lastViewed', doc.id);
-//       }
-//       if (!('lastVerified' in data)) {
-//         toUpdate.push(url);
-//         // await doc.ref.update({lastVerified: new Date()});
-//         console.log('no last lastVerified', doc.id);
-//       }
-//     }
-
-//     // if (toUpdate.length) {
-//     //   await updateBatch(toUpdate.map(url => url.doc), {lastVerified: new Date()});
-//     //   console.log('Batch updated. Last doc:', toUpdate.slice(-1)[0].url);
-//     // }
-
-//     if (!complete) {
-//       console.info(`Fetched ${allUrls.length} urls.`);
-//       return;
-//     }
-
-//     resolve(allUrls);
-//   }, {totalNumBatches: 100, batchSize: 10000});
-// });
-
-// console.log(urls.length, 'total urls');
-
 // removeNextSetOfInvalidUrls(10);
 
 // db.collection('meta')
