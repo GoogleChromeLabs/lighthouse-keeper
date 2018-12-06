@@ -5,3 +5,4 @@ node_modules
 *-error.log
 serviceAccount.json
 memcacheCredentials.json
+allurls.txt

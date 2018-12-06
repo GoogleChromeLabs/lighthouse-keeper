@@ -1,22 +1,36 @@
 cron:
 # - description: "Update Lighthouse scores"
 #   url: /cron/update_lighthouse_scores
-#   schedule: every day 23:45
+#   schedule: every week 23:45
 #   timezone: America/Los_Angeles
 #   target: lighthouse
 #   retry_parameters:
 #     job_retry_limit: 1
 - description: "Removes unused URLs and their metatdata"
   url: /cron/delete_stale_lighthouse_reports
-  schedule: every day 23:00
+  schedule: every sunday 23:00
   timezone: America/Los_Angeles
   target: lighthouse
   retry_parameters:
     job_retry_limit: 1
-- description: "Updates median score for every LH category"
-  url: /cron/update_median_scores
-  schedule: every day 04:00
+- description: "Removes URLs which are invalid (e.g. return 403/404/500)."
+  url: /cron/remove_invalid_urls
+  schedule: every 2 minutes
   timezone: America/Los_Angeles
   target: lighthouse
   retry_parameters:
-    job_retry_limit: 2
+    job_retry_limit: 1
+#- description: "Updates median score for every LH category"
+#  url: /cron/update_median_scores
+#  schedule: every day 04:00
+#  timezone: America/Los_Angeles
+#  target: lighthouse
+#  retry_parameters:
+#    job_retry_limit: 2
+- description: "Updates firestore counter for number of saved urls"
+  url: /cron/update_saved_url_count
+  schedule: every day 01:30
+  timezone: America/Los_Angeles
+  target: lighthouse
+  retry_parameters:
+    job_retry_limit: 1

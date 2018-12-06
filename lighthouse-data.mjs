@@ -13,16 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+import childProcess from 'child_process';
+const exec = util.promisify(childProcess.exec);
 import fs from 'fs';
+import util from 'util';
+
+import * as utils from './public/utils.mjs';
+import async from 'async';
 import fetch from 'node-fetch';
-import Firestore from '@google-cloud/firestore';
 import gcs from '@google-cloud/storage';
 const CloudStorage = gcs.Storage;
-import ReportGenerator from 'lighthouse/lighthouse-core/report/report-generator.js';
-// import Memcache from './memcache.mjs';
-import LighthouseAPI from './lighthouse-api.mjs';
 import isSameDay from 'date-fns/is_same_day';
+import AbortController from 'abort-controller';
+import Firestore from '@google-cloud/firestore';
+import LighthouseAPI from './lighthouse-api.mjs';
+// import Memcache from './memcache.mjs';
+import ReportGenerator from 'lighthouse/lighthouse-core/report/report-generator.js';
 
 const SERVICE_ACCOUNT_FILE = './serviceAccount.json';
 const STORAGE_BUCKET = 'webdotdevsite.appspot.com';
@@ -30,33 +36,11 @@ const serviceAccountJSON = JSON.parse(fs.readFileSync(SERVICE_ACCOUNT_FILE));
 
 const USE_CACHE = true;
 const MAX_REPORTS = 10;
+// See firebase.google.com/docs/firestore/quotas#writes_and_transactions
+const MAX_DOCS_PER_BATCH = 500;
 
-function slugify(url) {
-  return url.replace(/\//g, '__');
-}
-
-function deslugify(id) {
-  return id.replace(/__/g, '/');
-}
-
-/**
- * The "median" is the "middle" value in the list of numbers.
- * @param {!Array<number>} numbers An array of numbers.
- * @return {number} The calculated median value from the specified numbers.
- */
-function median(numbers) {
-  // median of [3, 5, 4, 4, 1, 1, 2, 3] = 3
-  let median = 0
-  numbers.sort();
-  if (numbers.length % 2 === 0) {  // is even
-    // average of two middle numbers
-    median = (numbers[numbers.length / 2 - 1] + numbers[numbers.length / 2]) / 2;
-  } else { // is odd
-    // middle number only
-    median = numbers[(numbers.length - 1) / 2];
-  }
-  return median;
-}
+const MAX_CONCURRENT_REQUESTS = 20;
+const MAX_FETCH_TIMEOUT = 30 * 1000;
 
 /**
  * Uploads the LH report to Firebase cloud storage.
@@ -84,8 +68,8 @@ export async function getFullReport(url) {
   const bucket = storage.bucket(STORAGE_BUCKET);
 
   const filenames = [
-    `lhrs/${slugify(url)}.json`,
-    `lhrs/${encodeURI(slugify(url))}.json`, // attemp to file url encoded version.
+    `lhrs/${utils.slugify(url)}.json`,
+    `lhrs/${encodeURI(utils.slugify(url))}.json`, // attemp to file url encoded version.
   ];
 
   for (const filename of filenames) {
@@ -132,7 +116,7 @@ export async function finalizeReport(url, json, replace) {
     data.crux = json.crux;
   }
 
-  const collectionRef = db.collection(slugify(url));
+  const collectionRef = db.collection(utils.slugify(url));
   const querySnapshot = await collectionRef
       .orderBy('auditedOn', 'desc').limit(1).get();
 
@@ -150,7 +134,7 @@ export async function finalizeReport(url, json, replace) {
   }
 
   // GCP always stores the latest full report.
-  await uploadReport(lhr, slugify(url));
+  await uploadReport(lhr, utils.slugify(url));
 
   if (replace && lastDoc) {
     await lastDoc.ref.update(data); // Replace last entry with updated vals.
@@ -160,10 +144,11 @@ export async function finalizeReport(url, json, replace) {
 
   // TODO: when we re-enable the cron, it should not update the last viewed.
   await updateLastViewed(url); // Update url's last touch timestamp.
+  await updateLastVerified(url); // We've (re)verified url doesn't error out.
 
   // // Clear relevant caches.
   // await Promise.all([
-  //   memcache.delete(`getReports_${slugify(url)}`),
+  //   memcache.delete(`getReports_${utils.slugify(url)}`),
   // ]);
 
   data.lhr = lhr; // add back in full lhr to return val.
@@ -267,31 +252,49 @@ export async function runLighthouseAPI(url, replace=false) {
 }
 
 /**
- * Returns all the URLs stored in the system.
- * @param {{useCache: boolean=}} Config object.
- * @return {!Promise<string>}
- * @export
+ * @param {!Function} url
  */
-export async function getAllSavedUrls({useCache}={useCache: USE_CACHE}) {
-  // if (useCache) {
-  //   const val = await memcache.get('getAllSavedUrls');
-  //   if (val) {
-  //     return val;
-  //   }
-  // }
+export function getSavedUrls(onResults, {
+    totalNumBatches = Number.POSITIVE_INFINITY, batchSize = 1000,
+    startAfter = null}={}) {
+  const urls = [];
 
-  const meta = await db.collection('meta').get();
-  const urls = meta.docs.filter(doc => doc.id.startsWith('http'))
-      .map(doc => deslugify(doc.id)).sort();
+  const queryNextPage = (startAfter = null, batchNum = 1) => {
+    if (batchNum > totalNumBatches) {
+      onResults({complete: true, urls: []});
+      return;
+    }
 
-  // if (useCache) {
-  //   await memcache.set('getAllSavedUrls', urls);
-  // }
+    let query = db.collection('meta').orderBy('__name__').limit(batchSize);
 
-  console.info(`urls in system: ${urls.length}`);
+    if (startAfter) {
+      query = query.startAfter(startAfter);
+    }
 
-  return urls;
+    query.get().then(snapshot => {
+      if (snapshot.empty) {
+        onResults({complete: true, urls: []});
+        return;
+      }
+
+      const newUrls = snapshot.docs
+        .filter(doc => doc.id.startsWith('http'))
+        .map(doc => ({
+          url: utils.deslugify(doc.id),
+          // lastViewed: new Date(doc.data().lastViewed.seconds * 1000),
+          doc,
+        }));
+
+      onResults({urls: newUrls, complete: false});
+
+      const lastDocInQueryResult = snapshot.docs.slice(-1)[0];
+      queryNextPage(lastDocInQueryResult, batchNum + 1);
+    });
+  };
+
+  queryNextPage(startAfter);
 }
+
 
 /**
  * Updates the last viewed metadata for a URL.
@@ -299,7 +302,47 @@ export async function getAllSavedUrls({useCache}={useCache: USE_CACHE}) {
  * @return {!Promise}
  */
 async function updateLastViewed(url) {
-  return db.doc(`meta/${slugify(url)}`).set({lastViewed: new Date()});
+  const doc = db.doc(`meta/${utils.slugify(url)}`).set({
+    lastViewed: new Date(),
+  }, {merge: true});
+}
+
+/**
+ * Updates the last verified metadata for a URL.
+ * @param {string} url
+ * @return {!Promise}
+ */
+async function updateLastVerified(url) {
+  return db.doc(`meta/${utils.slugify(url)}`).set({
+    lastVerified: new Date(),
+  }, {merge: true});
+}
+
+/**
+ * @param {string} docId Document id in Firestore.
+ * @return {!Promise<?Number>}
+ */
+export async function getCount(docId) {
+  const ref = db.collection('counters').doc(docId);
+  const doc = await ref.get();
+  return !doc.exists ? null : Number(doc.data().count);
+}
+
+/**
+ * @param {string} docId Document id in Firestore.
+ * @param {Number=} val If present, sets counter to val.
+ * @return {!Promise}
+ */
+export async function incrementCounter(docId, val = null) {
+  const ref = db.collection('counters').doc(docId);
+  const doc = await ref.get();
+  if (!doc.exists) {
+    console.warn(
+      `Could not increment counter /counters/${doc}. It does not exist.`);
+    return;
+  }
+  const count = val !== null ? val : Number(doc.data().count) + 1;
+  return ref.update({count});
 }
 
 /**
@@ -309,10 +352,10 @@ async function updateLastViewed(url) {
  *     for the url.
  */
 export async function incrementInterestCount(url) {
-  const docRef = db.doc(`meta/${slugify(url)}`);
+  const docRef = db.doc(`meta/${utils.slugify(url)}`);
   const meta = await docRef.get();
   const {interestCount = 0} = meta.data();
-  await docRef.set({interestCount: ++interestCount});
+  await docRef.udpate({interestCount: ++interestCount});
   return interestCount;
 }
 
@@ -323,10 +366,10 @@ export async function incrementInterestCount(url) {
  *     for the url.
  */
 export async function decrementInterestCount(url) {
-  const docRef = db.doc(`meta/${slugify(url)}`);
+  const docRef = db.doc(`meta/${utils.slugify(url)}`);
   const meta = await docRef.get();
   const {interestCount = 0} = meta.data();
-  await docRef.set({interestCount: --interestCount});
+  await docRef.update({interestCount: --interestCount});
   return interestCount;
 }
 
@@ -338,7 +381,7 @@ export async function decrementInterestCount(url) {
  * @return {!Promise<!Object>}
  */
 async function getAllScores(url, maxResults=MAX_REPORTS) {
-  const querySnapshot = await db.collection(`${slugify(url)}`)
+  const querySnapshot = await db.collection(`${utils.slugify(url)}`)
       .orderBy('auditedOn', 'desc').limit(maxResults).get();
 
   const runs = querySnapshot.docs;
@@ -371,7 +414,7 @@ export async function getMedianScores(url, maxResults=MAX_REPORTS) {
   // Calculate medians
   const medians = {};
   Object.entries(scores).map(([cat, scores]) => {
-    medians[cat] = median(scores);
+    medians[cat] = utils.median(scores);
   });
 
   return medians;
@@ -392,48 +435,48 @@ export async function getMedianScoresOfAllUrls(
   //   }
   // }
 
-  console.warn('No cached medians.');
+  // console.warn('No cached medians.');
 
   return {};
 }
 
-/**
- * Updates median scores for all categories, across all urls.
- * @param {{maxResults: number=, useCache: boolean=}} Config object.
- * @return {!Promise<!Object>}
- * @export
- */
-export async function updateMedianScoresOfAllUrls(
-    {maxResults, useCache}={maxResults: 1, useCache: USE_CACHE}) {
-  const combinedScores = {};
-  const urls = await getAllSavedUrls();
+// /**
+//  * Updates median scores for all categories, across all urls.
+//  * @param {{maxResults: number=, useCache: boolean=}} Config object.
+//  * @return {!Promise<!Object>}
+//  * @export
+//  */
+// export async function updateMedianScoresOfAllUrls(
+//     {maxResults, useCache}={maxResults: 1, useCache: USE_CACHE}) {
+//   const combinedScores = {};
+//   const urls = await getSavedUrls();
 
-  console.info(`Calculating median category scores of ${urls.length} urls`);
+//   console.info(`Calculating median category scores of ${urls.length} urls`);
 
-  const urlScores = await Promise.all(
-    urls.map(url => getAllScores(url, maxResults)));
-  for (const score of urlScores) {
-    Object.entries(score).map(([cat, scores]) => {
-      if (!combinedScores[cat]) {
-        combinedScores[cat] = [];
-      }
-      combinedScores[cat].push(...scores);
-    });
-  }
+//   const urlScores = await Promise.all(
+//     urls.map(url => getAllScores(url, maxResults)));
+//   for (const score of urlScores) {
+//     Object.entries(score).map(([cat, scores]) => {
+//       if (!combinedScores[cat]) {
+//         combinedScores[cat] = [];
+//       }
+//       combinedScores[cat].push(...scores);
+//     });
+//   }
 
-  // Calculate medians
-  const medians = {};
-  Object.entries(combinedScores).map(([cat, scores]) => {
-    medians[cat] = median(scores);
-  });
+//   // Calculate medians
+//   const medians = {};
+//   Object.entries(combinedScores).map(([cat, scores]) => {
+//     medians[cat] = utils.median(scores);
+//   });
 
-  // if (useCache) {
-  //   const success = await memcache.set('getMedianScoresOfAllUrls', medians);
-  //   console.log(`Median scores saved to memcache: ${success}`);
-  // }
+//   // if (useCache) {
+//   //   const success = await memcache.set('getMedianScoresOfAllUrls', medians);
+//   //   console.log(`Median scores saved to memcache: ${success}`);
+//   // }
 
-  return medians;
-}
+//   return medians;
+// }
 
 /**
  * Get saved reports for a given URL.
@@ -446,7 +489,7 @@ export async function updateMedianScoresOfAllUrls(
  */
 export async function getReports(url,
     {maxResults, useCache}={maxResults: MAX_REPORTS, useCache: USE_CACHE}) {
-  // const cacheKey = `getReports_${slugify(url)}`;
+  // const cacheKey = `getReports_${utils.slugify(url)}`;
   // if (useCache) {
   //   const val = await memcache.get(cacheKey);
   //   if (val) {
@@ -455,7 +498,7 @@ export async function getReports(url,
   //   }
   // }
 
-  const querySnapshot = await db.collection(slugify(url))
+  const querySnapshot = await db.collection(utils.slugify(url))
       .orderBy('auditedOn', 'desc').limit(maxResults).get();
 
   let runs = [];
@@ -491,15 +534,13 @@ export async function getReports(url,
  * @param {!Function} resolve Function to call when all batches are deleted.
  * @param {!Function} reject Function to call in case of error.
  */
-function deleteBatch_(query, resolve, reject) {
+function deleteBatch(query, resolve, reject) {
   query.get().then((snapshot) => {
       if (snapshot.size === 0) {
         return 0;
       }
       const batch = db.batch();
-      snapshot.docs.forEach((doc) => {
-        batch.delete(doc.ref);
-      });
+      snapshot.docs.forEach((doc) => batch.delete(doc.ref));
       return batch.commit().then(() => snapshot.size);
     }).then((numDeleted) => {
       if (numDeleted === 0) {
@@ -510,10 +551,26 @@ function deleteBatch_(query, resolve, reject) {
       // exploding the stack.
       // @see https://firebase.google.com/docs/firestore/manage-data/delete-data
       process.nextTick(() => {
-        deleteBatch_(query, resolve, reject);
+        deleteBatch(query, resolve, reject);
       });
     })
     .catch(reject);
+}
+
+/**
+ * Updates documents in Firestore in batch.
+ * @param {!Array<!DocumentReference>} docs
+ * @param {!Object} obj Object to update the document with.
+ * @param {!Promise} Resolves when the batch operation is complete.
+ */
+async function updateBatch(docs, obj) {
+  for (let i = 0; i < docs.length; i += MAX_DOCS_PER_BATCH) {
+    const batch = db.batch();
+    const chunks = docs.slice(i, i + MAX_DOCS_PER_BATCH);
+    chunks.forEach((doc) => batch.update(doc.ref, obj));
+    await batch.commit();
+  }
+  return Promise.resolve(docs.length);
 }
 
 /**
@@ -523,18 +580,17 @@ function deleteBatch_(query, resolve, reject) {
  * @export
  */
 export async function deleteReports(url) {
-  const batchSize = 20;
-  const collectionRef = db.collection(slugify(url));
-  const query = collectionRef.orderBy('__name__').limit(batchSize);
+  const collectionRef = db.collection(utils.slugify(url));
+  const query = collectionRef.orderBy('__name__').limit(MAX_DOCS_PER_BATCH);
 
   const deletePromise = new Promise((resolve, reject) => {
-    deleteBatch_(query, resolve, reject);
+    deleteBatch(query, resolve, reject);
   });
 
   // Delete reports and memcache data.
   await Promise.all([
     deletePromise,
-    // memcache.delete(`getReports_${slugify(url)}`),
+    // memcache.delete(`getReports_${utils.slugify(url)}`),
   ]);
 
   return Promise.resolve(true);
@@ -547,7 +603,132 @@ export async function deleteReports(url) {
  * @export
  */
 export async function deleteMetadata(url) {
-  return db.collection('meta').doc(slugify(url)).delete();
+  return db.collection('meta').doc(utils.slugify(url)).delete();
+}
+
+/**
+ * Removes a URL from firestore.
+ * @param {string} url
+ * @return {!Promise}
+ */
+export function removeUrl(url) {
+  return Promise.all([
+    deleteReports(url),
+    deleteMetadata(url),
+  ]);
+}
+
+/**
+ *
+ * @param {string} method HTTP method
+ * @param {string} url
+ * @param {number=} timeout. Defaults to 10s.
+ * @return {!Promise<boolean>}
+ */
+async function fetchWithTimeout(method, url, timeout=10 * 1000) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+  const valid = await fetch(url, {
+    method,
+    redirect: 'follow',
+    signal: controller.signal,
+    // Handle common redirect scenario: http:// -> https:// -> https://www
+    follow: 4,
+    size: 0, // Response body size. 0 disables it.
+    compress: true,
+  }).then(resp => {
+    // console.log(resp.status, resp.statusText, resp.ok, url);
+
+    // If server doesn't support HEAD request, consider it a valid URL.
+    if (resp.status === 405) {
+      return true;
+    }
+
+    return resp.ok;
+  }).catch(err => {
+    console.log(`${err.name}: ${err.message} - ${url}`);
+    // If request timed out, we don't know if the URL was good. Consider it
+    // valid to play it safe.
+    if (err.name === 'AbortError') {
+      return true;
+    }
+    return false;
+  });
+
+  clearTimeout(timeoutId);
+
+  return valid;
+}
+
+/**
+ * Finds all invalid urls (e.g. that return 400s, 500s) and removes them from
+ * the system.
+ * @param {number=} limit Number of urls to validate. Default is 1000.
+ * @return {!Promise<{{numRemoved: number, numRemoved: number}}>}
+ * @export
+ */
+export async function removeNextSetOfInvalidUrls(limit = 1000) {
+  const meta = await db.doc(`_data/meta`).get();
+  const lastVerifiedRunOn = meta.data().lastVerifiedRunOn.toDate();
+
+  const query = db.collection('meta')
+    .where('lastVerified', '>=', lastVerifiedRunOn)
+    .orderBy('lastVerified', 'asc') // earliest, first.
+    // .orderBy('__name__')
+    // .startAfter(new Date(startAfter))
+    .limit(limit);
+
+  const snapshot = await query.get();
+
+  // Reset lastVerifiedRunOn to time far in the past. This essentially will
+  // make the cron job loop around and start checking urls all over again.
+  if (snapshot.empty) {
+    await db.doc(`_data/meta`).set({
+      lastVerifiedRunOn: new Date('2018-11-12T21:49:20.821Z'),
+    }, {merge: true});
+    return {numRemoved: 0, urls: []};
+  }
+
+  const lastDocVerifiedDate = snapshot.docs.slice(-1)[0]
+      .get('lastVerified').toDate();
+
+  console.info(`Verifying ${snapshot.size} urls.` +
+      `From ${lastVerifiedRunOn.toJSON()} to ${lastDocVerifiedDate.toJSON()}`);
+
+  // Update lastVerifiedRunOn to lastVerified of the last doc in the query
+  // results. Cron picks up from here.
+  await db.doc(`_data/meta`).set({
+    lastVerifiedRunOn: lastDocVerifiedDate,
+  }, {merge: true});
+
+  try {
+    let numRemoved = 0;
+
+    const tasks = snapshot.docs.map(doc => {
+      return async function() {
+        const url = utils.deslugify(doc.id);
+        // Use GET requests b/c they're reliable than HEAD requests.
+        // Some servers don't respond to HEAD.
+        const ok = await fetchWithTimeout('GET', url, MAX_FETCH_TIMEOUT);
+        if (!ok) {
+          numRemoved++;
+          console.log(`Removed ${url}`);
+          await removeUrl(url);
+        }
+        await updateLastVerified(url);
+        return {ok, url};
+      };
+    });
+
+    const parallelLimit = util.promisify(async.parallelLimit);
+    const results = await parallelLimit(
+        async.reflectAll(tasks), MAX_CONCURRENT_REQUESTS);
+
+    return {numUrls: results.length, numRemoved};
+  } catch (err) {
+    console.error('Async task error', err);
+  }
 }
 
 /**
@@ -573,3 +754,25 @@ const storage = new CloudStorage({
   projectId: serviceAccountJSON.project_id,
   keyFilename: SERVICE_ACCOUNT_FILE,
 });
+
+
+(async() => {
+// removeNextSetOfInvalidUrls(10);
+
+// db.collection('meta')
+//   .orderBy('lastVerified', 'asc') // earliest, first.
+//   // .orderBy('__name__')
+//   .startAfter(new Date('2018-12-01T04:27:29.062Z'))
+//   .limit(10)
+//   .get().then(docs => {
+//     docs.forEach(doc => {
+//       const data = doc.data();
+//       console.log(doc.id, data.lastVerified.toDate());
+//       if (!('lastVerified' in data)) {
+//         // await doc.ref.update({lastVerified: new Date()});
+//         // console.log('no last lastVerified', doc.id);
+//       }
+//     });
+//   });
+
+})();
