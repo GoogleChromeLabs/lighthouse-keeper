@@ -185,7 +185,7 @@ app.get('/cron/update_saved_url_count', async (req, resp) => {
 
 app.use('/task/remove_invalid_urls', requireFromTaskQueue);
 app.post('/task/remove_invalid_urls', async (req, resp, next) => {
-  const {numUrls, numRemoved} = await lighthouse.removeNextSetOfInvalidUrls();
+  const {numUrls, numRemoved} = await lighthouse.removeNextSetOfInvalidUrls(500);
   resp.status(200).send(`Validated ${numUrls} urls. Removed ${numRemoved}.`);
 });
 
