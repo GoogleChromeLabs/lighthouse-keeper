@@ -96,6 +96,7 @@
 <script type="module">
 import {html, render} from '/node_modules/lit-html/lit-html.js';
 import {repeat} from '/node_modules/lit-html/directives/repeat.js';
+import {until} from '/node_modules/lit-html/directives/until.js';
 import * as utils from './utils.mjs';
 
 const STALE_AFTER = 60; // days
@@ -276,41 +277,22 @@ function renderUrls(urls) {
     <div class="summary">Showing first ${urls.length} results for query.</div>
     <ul>
       ${repeat(urls, url => url.url, (url, i) => {
-        // const lastViewedPromise = url.lastViewed;
-        // const lastViewed = lastViewedPromise.then(lastViewed => {
-        //   return new Intl.DateTimeFormat('en-US', {
-        //     day: 'numeric', month: 'short', hour: 'numeric', minute: 'numeric',
-        //   }).format(lastViewed);
-        // });
-
-        // const daysOldPromise = lastViewedPromise.then(lastViewed => {
-        //   const daysOld = dateFns.differenceInCalendarDays(lastViewed, cutoffDate);
-
-        //   let classColor = 'green';
-        //   if (daysOld < 40) {
-        //     classColor = 'orange';
-        //   } else if (daysOld < 20) {
-        //     classColor = 'red';
-        //   }
-
-        //   return {
-        //     daysOld,
-        //     classColor,
-        //   };
-        // });
-
         const lastViewed = new Intl.DateTimeFormat('en-US', {
           day: 'numeric', month: 'short', hour: 'numeric', minute: 'numeric',
         }).format(url.lastViewed);
 
+        const lastVerified = new Intl.DateTimeFormat('en-US', {
+          day: 'numeric', month: 'short', hour: 'numeric', minute: 'numeric',
+        }).format(url.lastVerified);
+
         const daysOld = dateFns.differenceInCalendarDays(url.lastViewed, cutoffDate);
 
-        // let classColor = 'green';
-        // if (daysOld < 40) {
-        //   classColor = 'orange';
-        // } else if (daysOld < 20) {
-        //   classColor = 'red';
-        // }
+        let classColor = 'green';
+        if (daysOld < 40) {
+          classColor = 'orange';
+        } else if (daysOld < 20) {
+          classColor = 'red';
+        }
 
         return html`
           <li class="url-item">
@@ -320,9 +302,10 @@ function renderUrls(urls) {
             </a>
             <a href="${url.url}" target="_blank">${url.url}</a>
             <span class="lastviewed">Last accessed ${lastViewed}</span>
-            <span class="lastviewed">
+            <span class="lastviewed ${classColor}">
               <b>${daysOld} days</b> until removal
             </span>
+            <span class="lastviewed">Last verified ${lastVerified}</span>
           </li>`;
       })}
     </ul>`;
@@ -378,7 +361,7 @@ firebase.auth().onAuthStateChanged(async user => {
       <img src="${user.photoURL}" class="profileimage">
       <span>${user.email}</span>`, document.querySelector('#user'));
 
-  render(html`${numUrls}`, document.querySelector('#numurls'));
+  render(html`${until(numUrls, '...')}`, document.querySelector('#numurls'));
 
 
   // getAllUrls(({urls, complete}) => {
