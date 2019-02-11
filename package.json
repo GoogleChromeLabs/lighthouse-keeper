@@ -26,25 +26,23 @@
     "node": ">=8"
   },
   "dependencies": {
-    "@google-cloud/firestore": "^0.19.0",
-    "@google-cloud/storage": "^2.3.1",
-    "@google-cloud/tasks": "^0.2.2",
-    "@webcomponents/webcomponentsjs": "^2.2.1",
-    "abort-controller": "^1.0.2",
+    "@google-cloud/firestore": "^1.0.1",
+    "@google-cloud/storage": "^2.4.2",
+    "@google-cloud/tasks": "^0.3.0",
+    "@webcomponents/webcomponentsjs": "^2.2.7",
+    "abort-controller": "^2.0.2",
     "async": "^2.6.1",
     "body-parser": "^1.18.3",
     "date-fns": "^1.29.0",
     "express": "^4.16.4",
-    "lighthouse": "GoogleChrome/lighthouse#master",
-    "lit-html": "^0.14.0",
+    "lighthouse": "^4.1.0",
+    "lit-html": "^1.0.0",
     "memjs": "^1.2.0",
-    "node-fetch": "^2.3.0",
-    "node-sass": "^4.10.0",
-    "rollup": "^0.67.4",
-    "rollup-plugin-includepaths": "^0.2.3",
-    "rollup-plugin-terser": "^3.0.0"
+    "node-fetch": "^2.3.0"
   },
   "devDependencies": {
-    "rollup-plugin-terser": "^3.0.0"
+    "rollup": "^1.1.2",
+    "rollup-plugin-includepaths": "^0.2.3",
+    "rollup-plugin-terser": "^4.0.4"
   }
 }
