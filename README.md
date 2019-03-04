@@ -18,7 +18,7 @@ There are several bits:
 npm i
 ```
 
-2. Decrypt the service account and memcache json files:
+2. Decrypt the service account and memcache JSON files:
 
 ```
 npm run decrypt
