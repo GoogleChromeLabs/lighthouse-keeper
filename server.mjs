@@ -114,7 +114,7 @@ function requireUrlQueryParam(req, resp, next) {
 //   next();
 // });
 app.get('/', (req, resp) => {
-  resp.redirect(301, 'https://web.dev/measure');
+  resp.send('nothing to see here');
 });
 
 app.use(bodyParser.raw());
