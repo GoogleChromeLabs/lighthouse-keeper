@@ -4,8 +4,7 @@ import {terser} from 'rollup-plugin-terser';
 export default [{
   input: './public/app.js',
   output: {
-    file: 'app.min.js',
-    dir: './public',
+    file: './public/app.min.js',
     format: 'es',
   },
   inlineDynamicImports: true,
