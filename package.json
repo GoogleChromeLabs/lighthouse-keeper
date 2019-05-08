@@ -5,14 +5,7 @@
   "main": "index.html",
   "license": "Apache-2.0",
   "scripts": {
-    "watch:js": "rollup -c --watch",
-    "watch:css": "node-sass --watch ./public/app.scss ./public/app.min.css",
-    "build:css": "node-sass ./public/app.scss ./public/app.min.css -t compressed",
-    "build:js": "rollup -c",
-    "build-DISABLED": "npm run build:css && npm run build:js",
-    "prestart-DISABLED": "npm run build",
     "start": "node --experimental-modules server.mjs",
-    "predeploy-DISABLED": "npm run build",
     "deploy": "gcloud app deploy app.yaml --project webdotdevsite",
     "deploy:queue": "gcloud app deploy queue.yaml --project webdotdevsite",
     "deploy:cron": "gcloud app deploy cron.yaml --project webdotdevsite",
@@ -23,7 +16,7 @@
     "decrypt": "npm run decrypt:service && npm run decrypt:memcache"
   },
   "engines": {
-    "node": ">=8"
+    "node": ">=10"
   },
   "dependencies": {
     "@google-cloud/firestore": "^1.0.1",
