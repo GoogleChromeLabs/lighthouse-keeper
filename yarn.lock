@@ -1778,9 +1778,10 @@ lighthouse-logger@^1.0.0, lighthouse-logger@^1.2.0:
     debug "^2.6.8"
     marky "^1.2.0"
 
-"lighthouse@git://github.com/GoogleChrome/lighthouse.git#master":
-  version "4.3.0"
-  resolved "git://github.com/GoogleChrome/lighthouse.git#acfa77796a64b649ea448f15889f5a099a484191"
+lighthouse@^5.0.0:
+  version "5.0.0"
+  resolved "https://registry.yarnpkg.com/lighthouse/-/lighthouse-5.0.0.tgz#bca0f2a3ca36877d44bef5ba6478b135820d1cfb"
+  integrity sha512-s9S2ZujnAYF+F5EqKKGL72H1PQ1tPf7YxEl79LmvF9QHXElrITjQfYgi+8ZmHrNrCkKra5aKPzKRN3IIfF5Q9w==
   dependencies:
     axe-core "3.2.2"
     chrome-launcher "^0.10.7"
