@@ -23,7 +23,7 @@ import async from 'async';
 import fetch from 'node-fetch';
 import gcs from '@google-cloud/storage';
 const CloudStorage = gcs.Storage;
-import isSameDay from 'date-fns/is_same_day';
+import isSameDay from 'date-fns/is_same_day/index.js';
 import AbortController from 'abort-controller';
 import Firestore from '@google-cloud/firestore';
 import LighthouseAPI from './lighthouse-api.mjs';
