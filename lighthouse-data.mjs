@@ -240,7 +240,7 @@ export async function runLighthouseAPI(url, replace=false) {
     json = await api.audit(url);
 
     // https://github.com/GoogleChrome/lighthouse/issues/6336
-    if (json.lhr.runtimeError && json.lhr.runtimeError.code !== 'NO_ERROR') {
+    if (json.lhr.runtimeError && json.lhr.runtimeError.code && json.lhr.runtimeError.code !== 'NO_ERROR') {
       throw new Error(
           `${json.lhr.runtimeError.code} ${json.lhr.runtimeError.message}`);
     }
