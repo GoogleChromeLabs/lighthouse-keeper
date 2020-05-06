@@ -1,3 +1,5 @@
+🚨 This is an experimental project primarily used for internal projects. We likely cannot provide much support over GitHub issues, though the code is available for anyone to read or study. If you would like a more robust monitoring solution we encourage you to take a look at [Lighthouse CI](https://github.com/GoogleChrome/lighthouse-ci).
+
 # Lighthouse Keeper
 
 > Lighthouse keeper is a backend for providing historical [Lighthouse](https://developers.google.com/web/tools/lighthouse/) results for an URL.
