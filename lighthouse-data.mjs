@@ -100,8 +100,6 @@ export async function getFullReport(url) {
 export async function finalizeReport(url, json, replace) {
   const lhr = json.lhr;
 
-  delete lhr.i18n; // remove cruft we don't to store.
-
   // Trim down the LH results to only include category/scores.
   const categories = JSON.parse(JSON.stringify(lhr.categories)); // clone it.
   const lhrSlim = Object.values(categories).map(cat => {
