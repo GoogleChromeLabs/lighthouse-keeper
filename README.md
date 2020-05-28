@@ -17,7 +17,7 @@ There are several bits:
 1. Install it:
 
 ```
-npm i
+npm ci
 ```
 
 2. Decrypt the service account and memcache JSON files:
