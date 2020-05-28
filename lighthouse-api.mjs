@@ -93,8 +93,6 @@ class LighthouseAPI {
         throw Error('Lighthouse API response: missing lighthouseResult.');
       }
 
-      delete lhr.i18n; // Remove extra cruft.
-
       const crux = {};
       // Firestore cannot save object keys with values of undefined, so make
       // sure to only include each crux key when the API has populated values.
