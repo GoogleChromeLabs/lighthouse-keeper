@@ -6,6 +6,7 @@
   "license": "Apache-2.0",
   "scripts": {
     "start": "node --experimental-modules server.mjs",
+    "debug": "node --inspect-brk --experimental-modules server.mjs",
     "deploy": "gcloud app deploy app.yaml --project webdotdevsite",
     "deploy:queue": "gcloud app deploy queue.yaml --project webdotdevsite",
     "deploy:cron": "gcloud app deploy cron.yaml --project webdotdevsite",
