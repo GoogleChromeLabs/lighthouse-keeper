@@ -25,7 +25,7 @@
     "@google-cloud/tasks": "^0.3.0",
     "@webcomponents/webcomponentsjs": "^2.2.7",
     "abort-controller": "^2.0.2",
-    "async": "^2.6.1",
+    "async": "^2.6.4",
     "body-parser": "^1.18.3",
     "date-fns": "^1.29.0",
     "express": "^4.16.4",
