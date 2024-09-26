@@ -36,7 +36,7 @@
     "node-sass": "^4.12.0"
   },
   "devDependencies": {
-    "rollup": "^1.1.2",
+    "rollup": "^2.79.2",
     "rollup-plugin-includepaths": "^0.2.3",
     "rollup-plugin-terser": "^4.0.4"
   }
